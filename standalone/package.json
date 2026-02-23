@@ -1,0 +1,30 @@
+{
+  "name": "openalerts",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Standalone OpenClaw monitoring daemon — SQLite, dashboard, alerts",
+  "author": "Nilay",
+  "license": "Apache-2.0",
+  "bin": {
+    "openalerts": "./bin/openalerts.js"
+  },
+  "main": "./dist/cli.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "node --experimental-sqlite --enable-source-maps dist/cli.js start",
+    "start": "node --experimental-sqlite dist/cli.js start",
+    "typecheck": "tsc --noEmit",
+    "clean": "node -e \"const fs=require('fs');try{fs.rmSync('dist',{recursive:true,force:true})}catch{}\""
+  },
+  "dependencies": {
+    "eventemitter3": "^5.0.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}
