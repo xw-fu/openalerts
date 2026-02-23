@@ -1,14 +1,38 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import logging
 import time
+import uuid
 from typing import Any
 
 from openalerts.core.engine import OpenAlertsEngine
 from openalerts.core.types import EventType, OpenAlertsEvent, Severity
 
 logger = logging.getLogger("openalerts.adapters.openmanus")
+
+# Context variables for session tracking within an agent.run() invocation
+_current_session_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "_current_session_id", default=None
+)
+_seq_counter: contextvars.ContextVar[int] = contextvars.ContextVar(
+    "_seq_counter", default=0
+)
+# Agent identity context — set in BaseAgent.run(), read in LLM patches
+_current_agent_name: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "_current_agent_name", default=None
+)
+_current_agent_class: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "_current_agent_class", default=None
+)
+
+
+def _next_seq() -> int:
+    """Increment and return the next sequence number for the current session."""
+    val = _seq_counter.get(0) + 1
+    _seq_counter.set(val)
+    return val
 
 
 class OpenManusAdapter:
@@ -25,6 +49,10 @@ class OpenManusAdapter:
     OpenManus's execute_tool() catches all exceptions internally and returns
     error strings prefixed with "Error:". This adapter detects that pattern
     to emit tool.error events rather than relying on exception propagation.
+
+    Session tracking: Each agent.run() invocation gets a unique session_id via
+    contextvars, allowing all nested events (steps, tool calls, LLM calls) to
+    be correlated to the same session.
     """
 
     def __init__(self) -> None:
@@ -66,35 +94,54 @@ class OpenManusAdapter:
         async def patched_run(self_agent: Any, request: str | None = None) -> str:
             agent_name = getattr(self_agent, "name", None)
             agent_class = type(self_agent).__name__
+            session_id = str(uuid.uuid4())
             start = time.time()
 
-            await engine.ingest(OpenAlertsEvent(
-                type=EventType.AGENT_START,
-                agent_name=agent_name,
-                agent_class=agent_class,
-            ))
+            # Set session + agent context for all nested calls
+            sid_token = _current_session_id.set(session_id)
+            seq_token = _seq_counter.set(0)
+            name_token = _current_agent_name.set(agent_name)
+            class_token = _current_agent_class.set(agent_class)
+
             try:
-                result = await original_run(self_agent, request)
-                duration_ms = (time.time() - start) * 1000
                 await engine.ingest(OpenAlertsEvent(
-                    type=EventType.AGENT_END,
+                    type=EventType.AGENT_START,
+                    session_id=session_id,
                     agent_name=agent_name,
                     agent_class=agent_class,
-                    duration_ms=duration_ms,
-                    outcome="success",
+                    meta={"seq": _next_seq()},
                 ))
-                return result
-            except Exception as e:
-                duration_ms = (time.time() - start) * 1000
-                await engine.ingest(OpenAlertsEvent(
-                    type=EventType.AGENT_ERROR,
-                    agent_name=agent_name,
-                    agent_class=agent_class,
-                    duration_ms=duration_ms,
-                    error=str(e),
-                    severity=Severity.ERROR,
-                ))
-                raise
+                try:
+                    result = await original_run(self_agent, request)
+                    duration_ms = (time.time() - start) * 1000
+                    await engine.ingest(OpenAlertsEvent(
+                        type=EventType.AGENT_END,
+                        session_id=session_id,
+                        agent_name=agent_name,
+                        agent_class=agent_class,
+                        duration_ms=duration_ms,
+                        outcome="success",
+                        meta={"seq": _next_seq()},
+                    ))
+                    return result
+                except Exception as e:
+                    duration_ms = (time.time() - start) * 1000
+                    await engine.ingest(OpenAlertsEvent(
+                        type=EventType.AGENT_ERROR,
+                        session_id=session_id,
+                        agent_name=agent_name,
+                        agent_class=agent_class,
+                        duration_ms=duration_ms,
+                        error=str(e),
+                        severity=Severity.ERROR,
+                        meta={"seq": _next_seq()},
+                    ))
+                    raise
+            finally:
+                _current_session_id.reset(sid_token)
+                _seq_counter.reset(seq_token)
+                _current_agent_name.reset(name_token)
+                _current_agent_class.reset(class_token)
 
         cls.run = patched_run
 
@@ -110,6 +157,7 @@ class OpenManusAdapter:
             # current_step is already incremented by BaseAgent.run() before calling step()
             step_num = getattr(self_agent, "current_step", None)
             max_steps = getattr(self_agent, "max_steps", None)
+            session_id = _current_session_id.get(None)
             start = time.time()
 
             result = await original_step(self_agent)
@@ -117,11 +165,13 @@ class OpenManusAdapter:
 
             await engine.ingest(OpenAlertsEvent(
                 type=EventType.AGENT_STEP,
+                session_id=session_id,
                 agent_name=getattr(self_agent, "name", None),
                 agent_class=type(self_agent).__name__,
                 step_number=step_num,
                 max_steps=max_steps,
                 duration_ms=duration_ms,
+                meta={"seq": _next_seq()} if session_id else None,
             ))
             return result
 
@@ -140,13 +190,16 @@ class OpenManusAdapter:
         def patched_is_stuck(self_agent: Any) -> bool:
             result = original_is_stuck(self_agent)
             if result:
+                session_id = _current_session_id.get(None)
                 try:
                     loop = asyncio.get_running_loop()
                     loop.create_task(engine.ingest(OpenAlertsEvent(
                         type=EventType.AGENT_STUCK,
+                        session_id=session_id,
                         agent_name=getattr(self_agent, "name", None),
                         agent_class=type(self_agent).__name__,
                         severity=Severity.WARN,
+                        meta={"seq": _next_seq()} if session_id else None,
                     )))
                 except RuntimeError:
                     pass
@@ -175,6 +228,7 @@ class OpenManusAdapter:
                 tool_name = getattr(command.function, "name", None)
 
             agent_name = getattr(self_agent, "name", None)
+            session_id = _current_session_id.get(None)
             start = time.time()
 
             result = await original_execute(self_agent, command)
@@ -186,19 +240,23 @@ class OpenManusAdapter:
             if is_error:
                 await engine.ingest(OpenAlertsEvent(
                     type=EventType.TOOL_ERROR,
+                    session_id=session_id,
                     agent_name=agent_name,
                     tool_name=tool_name,
                     duration_ms=duration_ms,
                     error=result,
                     severity=Severity.WARN,
+                    meta={"seq": _next_seq()} if session_id else None,
                 ))
             else:
                 await engine.ingest(OpenAlertsEvent(
                     type=EventType.TOOL_CALL,
+                    session_id=session_id,
                     agent_name=agent_name,
                     tool_name=tool_name,
                     duration_ms=duration_ms,
                     outcome="success",
+                    meta={"seq": _next_seq()} if session_id else None,
                 ))
 
             return result
@@ -234,6 +292,9 @@ class OpenManusAdapter:
                 # Snapshot token counters before call
                 input_before = getattr(self_llm, "total_input_tokens", 0)
                 completion_before = getattr(self_llm, "total_completion_tokens", 0)
+                session_id = _current_session_id.get(None)
+                agent_name = _current_agent_name.get(None)
+                agent_class = _current_agent_class.get(None)
                 start = time.time()
 
                 try:
@@ -247,20 +308,28 @@ class OpenManusAdapter:
 
                     await engine.ingest(OpenAlertsEvent(
                         type=EventType.LLM_CALL,
+                        session_id=session_id,
+                        agent_name=agent_name,
+                        agent_class=agent_class,
                         duration_ms=duration_ms,
                         token_count=token_count if token_count > 0 else None,
                         outcome="success",
+                        meta={"seq": _next_seq()} if session_id else None,
                     ))
 
                     # Emit separate token_usage event if tokens were consumed
                     if token_count > 0:
                         await engine.ingest(OpenAlertsEvent(
                             type=EventType.LLM_TOKEN_USAGE,
+                            session_id=session_id,
+                            agent_name=agent_name,
+                            agent_class=agent_class,
                             token_count=token_count,
                             meta={
                                 "input_tokens": input_delta,
                                 "completion_tokens": completion_delta,
                                 "model": getattr(self_llm, "model", None),
+                                **({"seq": _next_seq()} if session_id else {}),
                             },
                         ))
 
@@ -276,16 +345,24 @@ class OpenManusAdapter:
                     if is_token_limit:
                         await engine.ingest(OpenAlertsEvent(
                             type=EventType.TOKEN_LIMIT,
+                            session_id=session_id,
+                            agent_name=agent_name,
+                            agent_class=agent_class,
                             duration_ms=duration_ms,
                             error=str(cause),
                             severity=Severity.ERROR,
+                            meta={"seq": _next_seq()} if session_id else None,
                         ))
 
                     await engine.ingest(OpenAlertsEvent(
                         type=EventType.LLM_ERROR,
+                        session_id=session_id,
+                        agent_name=agent_name,
+                        agent_class=agent_class,
                         duration_ms=duration_ms,
                         error=str(e),
                         severity=Severity.ERROR,
+                        meta={"seq": _next_seq()} if session_id else None,
                     ))
                     raise
 

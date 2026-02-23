@@ -80,14 +80,18 @@ def _get_cooldown(config: OpenAlertsConfig, rule: AlertRule) -> int:
     override = config.rules.get(rule.id)
     if override and override.cooldown_seconds is not None:
         return override.cooldown_seconds
+    if config.cooldown_seconds != 900:  # non-default global override
+        return config.cooldown_seconds
     return rule.default_cooldown_seconds
 
 
 def _is_cooled_down(state: EvaluatorState, fingerprint: str, cooldown_seconds: int) -> bool:
-    last_fired = state.cooldowns.get(fingerprint)
-    if last_fired is None:
+    entry = state.cooldowns.get(fingerprint)
+    if entry is None:
         return True
-    return (time.time() - last_fired) >= cooldown_seconds
+    # Support both old format (float) and new format (dict with "ts")
+    ts = entry["ts"] if isinstance(entry, dict) else entry
+    return (time.time() - ts) >= cooldown_seconds
 
 
 def _reset_hour_if_needed(state: EvaluatorState) -> None:
@@ -107,8 +111,11 @@ def process_event(
     _reset_hour_if_needed(state)
     fired: list[AlertEvent] = []
 
-    # Add event to all rule windows (bounded)
+    # Add event only to relevant rule windows (bounded)
     for rule in rules:
+        rule_types = getattr(rule, "event_types", None)
+        if rule_types and event.type not in rule_types:
+            continue
         if rule.id not in state.windows:
             state.windows[rule.id] = deque(maxlen=MAX_WINDOW_ENTRIES)
         state.windows[rule.id].append(event)
@@ -129,7 +136,10 @@ def process_event(
         if state.alerts_this_hour >= config.max_alerts_per_hour:
             continue
 
-        state.cooldowns[alert.fingerprint] = time.time()
+        state.cooldowns[alert.fingerprint] = {
+            "ts": time.time(),
+            "rule_id": rule.id,
+        }
         state.alerts_this_hour += 1
         state.stats[rule.id] = state.stats.get(rule.id, 0) + 1
         fired.append(alert)
@@ -163,7 +173,10 @@ def warm_from_history(
                     data = json.loads(stripped)
                     # Look for alert-like events (they have rule_id and fingerprint)
                     if "rule_id" in data and "fingerprint" in data:
-                        state.cooldowns[data["fingerprint"]] = data.get("ts", 0)
+                        state.cooldowns[data["fingerprint"]] = {
+                            "ts": data.get("ts", 0),
+                            "rule_id": data["rule_id"],
+                        }
                         count += 1
                 except (json.JSONDecodeError, KeyError):
                     continue
