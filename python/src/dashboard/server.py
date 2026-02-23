@@ -12,10 +12,12 @@ import logging
 import time
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
+from urllib.parse import parse_qs, urlparse
 
 from openalerts.dashboard.html import get_dashboard_html
 
 if TYPE_CHECKING:
+    from openalerts.collections.types import MonitorAction, MonitorSession
     from openalerts.core.engine import OpenAlertsEngine
     from openalerts.core.types import AlertEvent, OpenAlertsEvent
 
@@ -29,9 +31,11 @@ class DashboardServer:
     """Lightweight HTTP server that serves the OpenAlerts dashboard.
 
     Routes:
-        GET /openalerts        → HTML dashboard page
-        GET /openalerts/events → SSE stream (real-time events + history replay)
-        GET /openalerts/state  → JSON engine state snapshot
+        GET /openalerts           → HTML dashboard page
+        GET /openalerts/events    → SSE stream (real-time events + history replay)
+        GET /openalerts/state     → JSON engine state snapshot
+        GET /openalerts/sessions  → JSON list of monitoring sessions
+        GET /openalerts/actions   → JSON list of monitoring actions (optional ?session_id=X)
     """
 
     def __init__(self, engine: OpenAlertsEngine, port: int = _DEFAULT_PORT) -> None:
@@ -47,6 +51,8 @@ class DashboardServer:
         self._server = await asyncio.start_server(self._handle_connection, "0.0.0.0", self._port)
         self._unsubscribe = self._engine.bus.on(self._on_event)
         self._engine.on_alert(self._on_alert)
+        self._engine.on_session_update(self._on_session_update)
+        self._engine.on_action(self._on_action)
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
         logger.info("Dashboard server started on http://localhost:%d/openalerts", self._port)
 
@@ -93,7 +99,10 @@ class DashboardServer:
                 return
 
             method = parts[0]
-            path = parts[1].split("?")[0]  # Strip query string
+            raw_url = parts[1]
+            parsed = urlparse(raw_url)
+            path = parsed.path
+            query_params = parse_qs(parsed.query)
 
             # Read and discard remaining headers
             while True:
@@ -112,6 +121,13 @@ class DashboardServer:
                 return  # SSE keeps connection open
             elif path == "/openalerts/state":
                 await self._handle_state(writer)
+            elif path == "/openalerts/sessions":
+                await self._handle_sessions(writer)
+            elif path == "/openalerts/actions":
+                session_id = query_params.get("session_id", [None])[0]
+                limit_str = query_params.get("limit", [None])[0]
+                limit = int(limit_str) if limit_str else None
+                await self._handle_actions(writer, session_id=session_id, limit=limit)
             else:
                 await self._send_response(writer, HTTPStatus.NOT_FOUND, "text/plain", "Not Found")
         except (asyncio.TimeoutError, ConnectionError, OSError):
@@ -150,6 +166,21 @@ class DashboardServer:
         body = json.dumps(snapshot)
         await self._send_response(writer, HTTPStatus.OK, "application/json", body)
 
+    async def _handle_sessions(self, writer: asyncio.StreamWriter) -> None:
+        sessions = self._engine.get_sessions()
+        body = json.dumps([s.model_dump(mode="json") for s in sessions])
+        await self._send_response(writer, HTTPStatus.OK, "application/json", body)
+
+    async def _handle_actions(
+        self,
+        writer: asyncio.StreamWriter,
+        session_id: str | None = None,
+        limit: int | None = None,
+    ) -> None:
+        actions = self._engine.get_actions(session_id=session_id, limit=limit)
+        body = json.dumps([a.model_dump(mode="json") for a in actions])
+        await self._send_response(writer, HTTPStatus.OK, "application/json", body)
+
     async def _handle_sse(self, writer: asyncio.StreamWriter) -> None:
         """Start an SSE stream: send headers, replay history, then keep alive."""
         header = (
@@ -175,6 +206,14 @@ class DashboardServer:
         snapshot = self._engine.get_state_snapshot()
         if snapshot.get("recent_alerts"):
             sse_msg = f"event: alert_history\ndata: {json.dumps(snapshot['recent_alerts'])}\n\n"
+            writer.write(sse_msg.encode("utf-8"))
+            await writer.drain()
+
+        # Send session history replay
+        sessions = self._engine.get_sessions()
+        if sessions:
+            sessions_data = [s.model_dump(mode="json") for s in sessions]
+            sse_msg = f"event: session_history\ndata: {json.dumps(sessions_data)}\n\n"
             writer.write(sse_msg.encode("utf-8"))
             await writer.drain()
 
@@ -209,6 +248,14 @@ class DashboardServer:
             "ts": alert.ts,
         }
         await self._broadcast_sse("alert", data)
+
+    async def _on_session_update(self, session: MonitorSession) -> None:
+        """Broadcast a session update to all connected SSE clients."""
+        await self._broadcast_sse("session_update", session.model_dump(mode="json"))
+
+    async def _on_action(self, action: MonitorAction) -> None:
+        """Broadcast an action to all connected SSE clients."""
+        await self._broadcast_sse("action", action.model_dump(mode="json"))
 
     async def _broadcast_sse(self, event_type: str, data: object) -> None:
         """Send an SSE message to all connected clients."""

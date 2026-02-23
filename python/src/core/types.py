@@ -39,6 +39,7 @@ class OpenAlertsEvent(BaseModel):
     type: EventType
     ts: float = Field(default_factory=time.time)
     severity: Severity = Severity.INFO
+    session_id: str | None = None
     agent_name: str | None = None
     agent_class: str | None = None
     tool_name: str | None = None

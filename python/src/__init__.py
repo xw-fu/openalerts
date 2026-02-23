@@ -10,6 +10,7 @@ from typing import Any
 from openalerts.channels.discord import DiscordChannel
 from openalerts.channels.slack import SlackChannel
 from openalerts.channels.webhook import WebhookChannel
+from openalerts.collections.types import CollectionStats, MonitorAction, MonitorSession
 from openalerts.core.config import ChannelConfig, OpenAlertsConfig
 from openalerts.core.engine import OpenAlertsEngine
 from openalerts.core.types import AlertEvent, EventType, OpenAlertsEvent, Severity
@@ -18,8 +19,11 @@ from openalerts.dashboard.server import DashboardServer
 __all__ = [
     "AlertEvent",
     "ChannelConfig",
+    "CollectionStats",
     "DashboardServer",
     "EventType",
+    "MonitorAction",
+    "MonitorSession",
     "OpenAlertsConfig",
     "OpenAlertsEngine",
     "OpenAlertsEvent",
@@ -92,11 +96,9 @@ def init_sync(config: dict | OpenAlertsConfig) -> OpenAlertsEngine:
         loop = None
 
     if loop and loop.is_running():
-        import concurrent.futures
-
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            future = pool.submit(asyncio.run, init(config))
-            return future.result()
+        # Schedule on the existing loop — keeps background tasks alive
+        future = asyncio.run_coroutine_threadsafe(init(config), loop)
+        return future.result()
     else:
         return asyncio.run(init(config))
 

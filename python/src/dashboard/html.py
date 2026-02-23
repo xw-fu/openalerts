@@ -49,6 +49,8 @@ body{font-family:'SF Mono','Cascadia Code','Consolas',monospace;background:#0d11
 .flow-badge.active{background:#1f3a5f;color:#58a6ff}
 .flow-badge.done{background:#1a3a2a;color:#3fb950}
 .flow-badge.error{background:#3d1a1a;color:#f85149}
+.flow-badge.idle{background:#21262d;color:#8b949e}
+.flow-badge.completed{background:#1a3a2a;color:#3fb950}
 .flow-info{color:#484f58;font-size:10px;margin-left:auto;white-space:nowrap;flex-shrink:0}
 .flow-body{overflow:hidden;transition:max-height 0.2s ease-out}
 .flow-body.shut{max-height:0!important;overflow:hidden}
@@ -110,6 +112,17 @@ body{font-family:'SF Mono','Cascadia Code','Consolas',monospace;background:#0d11
 .h-tbl td{padding:4px 8px;font-size:13px;border-bottom:1px solid #161b22}
 .h-tbl td:first-child{color:#8b949e;width:140px}
 .h-tbl th{padding:4px 8px;font-size:12px;color:#8b949e;text-align:left;border-bottom:1px solid #30363d;font-weight:600}
+.sess-panels{display:grid;grid-template-columns:300px 1fr;gap:0;overflow:hidden;flex:1}
+@media(max-width:900px){.sess-panels{grid-template-columns:1fr}}
+.sess-card{padding:8px 12px;border-bottom:1px solid #21262d;cursor:pointer;transition:background 0.1s;animation:fi 0.15s ease}
+.sess-card:hover{background:#1c2129}
+.sess-card.selected{background:#1c2129;border-left:3px solid #58a6ff}
+.sess-card-hdr{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.sess-card-name{font-weight:600;font-size:12px;color:#c9d1d9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+.sess-card-meta{font-size:10px;color:#8b949e;display:flex;flex-wrap:wrap;gap:4px 10px}
+.sess-card-meta b{color:#c9d1d9;font-weight:500}
+.sess-actions-hdr{display:flex;align-items:center;gap:8px}
+.sess-actions-hdr .cnt{color:#484f58;font-weight:400}
 </style>
 </head>
 <body>
@@ -123,9 +136,11 @@ body{font-family:'SF Mono','Cascadia Code','Consolas',monospace;background:#0d11
     <span class="stat">tools: <b id="sTools">0</b></span>
     <span class="stat">err: <b id="sErr">0</b></span>
     <span class="stat">tokens: <b id="sTok">0</b></span>
+    <span class="stat">sessions: <b id="sSess">0</b></span>
   </div>
   <div class="tabbar">
     <div class="tab active" data-tab="activity">Activity</div>
+    <div class="tab" data-tab="sessions">Sessions</div>
     <div class="tab" data-tab="health">Health</div>
     <div class="tab" data-tab="debug">Debug</div>
   </div>
@@ -143,19 +158,146 @@ body{font-family:'SF Mono','Cascadia Code','Consolas',monospace;background:#0d11
         </div>
       </div>
     </div>
+    <div class="tab-content" id="tab-sessions">
+      <div class="sess-panels">
+        <div class="panel">
+          <div class="panel-header"><span>Sessions</span><span style="color:#484f58;font-weight:400" id="sessCnt">0</span></div>
+          <div class="scroll" id="sessList"><div class="empty-msg" id="sessEmpty">No sessions yet. Run an OpenManus agent to see sessions.</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="sess-actions-hdr"><span>Actions</span><span class="cnt" id="actCnt">0</span></div></div>
+          <div class="scroll" id="actList"><div class="empty-msg" id="actEmpty">Select a session to view its actions.</div></div>
+        </div>
+      </div>
+    </div>
     <div class="tab-content" id="tab-health">
       <div class="health-t" id="hC"><div class="empty-msg">Loading...</div></div>
     </div>
     <div class="tab-content" id="tab-debug">
       <div class="health-t">
         <div class="h-sec"><h3>Engine State</h3><div class="h-grid" id="dbState"></div></div>
-        <div class="h-sec"><h3>Recent Events (Last 20)</h3><div id="dbEvents" style="font-size:11px;max-height:400px;overflow-y:auto"></div></div>
+        <div class="h-sec"><h3>Active Flows</h3><div id="dbEvents" style="font-size:11px;max-height:400px;overflow-y:auto"></div></div>
         <div class="h-sec"><h3>Rule Cooldowns</h3><div id="dbRules"></div></div>
       </div>
     </div>
   </div>
 </div>
-<script>"use strict";(()=>{function a(t){let s=document.createElement("div");return s.textContent=t,s.innerHTML}function M(t){if(!t)return"custom";let s=t.split(".")[0];return["llm","tool","agent","token","step"].includes(s)?s:"custom"}function E(t){return t?new Date(t*1e3).toLocaleTimeString("en-US",{hour12:!1,hour:"2-digit",minute:"2-digit",second:"2-digit"}):""}function _(t){return t==null?"":t<1e3?Math.round(t)+"ms":t<6e4?(t/1e3).toFixed(1)+"s":Math.floor(t/6e4)+"m "+Math.round(t%6e4/1e3)+"s"}function v(t){let s=Math.floor(t/1e3),e=Math.floor(s/60),r=Math.floor(e/60);return r>0?r+"h "+e%60+"m":e+"m "+s%60+"s"}function y(t){if(!t)return"never";let s=Date.now()/1e3-t;return s<0&&(s=0),s<1?"just now":s<60?Math.floor(s)+"s ago":s<3600?Math.floor(s/60)+"m ago":Math.floor(s/3600)+"h ago"}var j={"llm.call":["\\u{1F916}","LLM Called"],"llm.error":["\\u26A0","LLM Failed"],"llm.token_usage":["\\u{1F4CA}","Token Usage"],"tool.call":["\\u{1F527}","Tool Executed"],"tool.error":["\\u{1F527}","Tool Failed"],"agent.start":["\\u25B6","Agent Started"],"agent.end":["\\u23F9","Agent Finished"],"agent.error":["\\u{1F6A8}","Agent Error"],"agent.stuck":["\\u23F3","Agent Stuck"],"agent.step":["\\u{1F463}","Agent Step"],"token.limit_exceeded":["\\u{1F6AB}","Token Limit"],"step.limit_warning":["\\u26A0","Step Limit"],custom:["\\u2022","Custom"]};function x(t){return j[t]||["\\u2022",t]}function d(t){return document.getElementById(t)}var U=100,f={},C=[];function F(t,s,e,r){if(f[t])return f[t];let n=document.createElement("div");n.className="flow active";let l=document.createElement("div");l.className="flow-hdr";let c=s.agent_class?s.agent_class+(s.agent_name?" ("+s.agent_name+")":""):t;l.innerHTML='<span class="flow-arr">\\u25BC</span><span class="flow-lbl" title="'+a(c)+'">'+a(c)+'</span><span class="flow-badge active" data-r="st">Running</span><span class="flow-info" data-r="info">'+E(s.ts)+"</span>";let o=document.createElement("div");o.className="flow-summary";let p=document.createElement("div");p.className="flow-body",l.addEventListener("click",()=>{let u=!p.classList.contains("shut");p.classList.toggle("shut",u),o.style.display=u?"none":"flex",l.querySelector(".flow-arr").classList.toggle("shut",u)}),n.appendChild(l),n.appendChild(o),n.appendChild(p);let i={el:n,body:p,hdr:l,summary:o,st:"active",n:0,err:!1,errCount:0,dur:0,tok:0,tools:0,llms:0,steps:0,toolNames:{}};return f[t]=i,C.push(t),r.style.display="none",e.insertBefore(n,e.firstChild),i}function S(t,s){t.st=s,t.el.className="flow "+s;let e=t.hdr.querySelector('[data-r="st"]'),r={active:"Running",done:"Completed",error:"Failed"};e&&(e.className="flow-badge "+s,e.textContent=r[s]||s);let n=t.hdr.querySelector('[data-r="info"]');if(n){let o=[t.n+" events"];t.dur>0&&o.push(_(t.dur)),t.tok>0&&o.push(t.tok+" tok"),t.tools>0&&o.push(t.tools+" tool"+(t.tools>1?"s":"")),t.llms>0&&o.push(t.llms+" llm"),t.steps>0&&o.push(t.steps+" step"+(t.steps>1?"s":"")),n.textContent=o.join(" \\xB7 ")}let l='<span>Events: <span class="fs-v">'+t.n+"</span></span>";t.dur>0&&(l+='<span>Duration: <span class="fs-v">'+_(t.dur)+"</span></span>"),t.tok>0&&(l+='<span>Tokens: <span class="fs-v">'+t.tok+"</span></span>");let c=Object.keys(t.toolNames);c.length&&(l+='<span>Tools: <span class="fs-tools">'+c.map(a).join(", ")+"</span></span>"),t.errCount>0&&(l+='<span>Errors: <span class="fs-err">'+t.errCount+"</span></span>"),t.summary.innerHTML=l}function H(){for(;C.length>U;){let t=C.shift();f[t]&&(f[t].el.remove(),delete f[t])}}var q=200;function J(t){let s=document.createElement("div");s.className="ev-detail";let e="<h4>Identity</h4>";e+=g("Type",t.type||"?"),e+=g("Timestamp",new Date(t.ts*1e3).toISOString()),t.agent_name&&(e+=g("Agent",t.agent_name)),t.agent_class&&(e+=g("Class",t.agent_class)),t.tool_name&&(e+=g("Tool",t.tool_name)),t.outcome&&(e+=g("Outcome",t.outcome)),t.severity&&t.severity!=="info"&&(e+=g("Severity",t.severity)),(t.duration_ms!=null||t.token_count!=null||t.step_number!=null)&&(e+="<h4>Metrics</h4>",t.duration_ms!=null&&(e+=g("Duration",_(t.duration_ms))),t.token_count!=null&&(e+=g("Tokens",String(t.token_count))),t.step_number!=null&&(e+=g("Step",t.step_number+(t.max_steps?"/"+t.max_steps:"")))),t.error&&(e+='<h4>Error</h4><div class="err-block">'+a(t.error)+"</div>");let n=t.meta;if(n){let l=Object.keys(n);if(l.length){e+='<h4>Meta</h4><div class="meta-grid">';for(let c of l){let o=n[c],p=typeof o=="object"?JSON.stringify(o):String(o??"");e+='<span class="mk">'+a(c)+'</span><span class="mv">'+a(p)+"</span>"}e+="</div>"}}return s.innerHTML=e,s}function g(t,s){return'<div class="dv"><span class="dk">'+a(t)+'</span><span class="dd">'+a(String(s))+"</span></div>"}function O(t,s){let e=document.createElement("div"),r=document.createElement("div");r.className="row"+(s===0?" standalone":s>1?" deep":"");let n=M(t.type),l=x(t.type),c=t.outcome||"",o='<div class="r-main">';o+='<span class="r-time">'+E(t.ts)+"</span>",o+='<span class="r-icon">'+l[0]+"</span>",t.severity&&t.severity!=="info"&&(o+='<span class="sev-dot '+t.severity+'"></span>'),o+='<span class="r-type '+n+'">'+a(l[1])+"</span>",c&&(o+='<span class="r-oc '+(c==="success"?"success":"error")+'">'+(c==="success"?"\\u2713 OK":"\\u2717 "+c)+"</span>"),o+='<span class="r-pills">',t.tool_name&&(o+='<span class="p t">'+a(t.tool_name)+"</span>"),t.duration_ms!=null&&(o+='<span class="p d">'+_(t.duration_ms)+"</span>"),t.token_count!=null&&(o+='<span class="p tk">'+t.token_count+" tok</span>"),t.step_number!=null&&(o+='<span class="p step">step '+t.step_number+(t.max_steps?"/"+t.max_steps:"")+"</span>"),t.agent_class&&s===0&&(o+='<span class="p agent">'+a(t.agent_class)+"</span>"),o+="</span></div>";let p=[];if(t.error){let u=t.error.length>120?t.error.slice(0,117)+"...":t.error;p.push('<span class="err">'+a(u)+"</span>")}t.agent_name&&s===0&&p.push('<span class="dim">agent: '+a(t.agent_name)+"</span>"),p.length&&(o+='<div class="r-det">'+p.join(" \\xB7 ")+"</div>"),r.innerHTML=o,e.appendChild(r);let i=J(t);return e.appendChild(i),r.addEventListener("click",()=>i.classList.toggle("open")),e}function N(t,s,e,r,n,l){if(n.value++,r.textContent=String(n.value),e.style.display="none",l.value)return;let c=t.agent_name||t.agent_class;if(c&&(f[c]||t.type==="agent.start")){let i=F(c,t,s,e);i.n++,t.token_count&&(i.tok+=t.token_count),(t.type==="tool.call"||t.type==="tool.error")&&(i.tools++,t.tool_name&&(i.toolNames[t.tool_name]=!0)),t.type==="llm.call"&&i.llms++,t.type==="agent.step"&&i.steps++,(t.outcome==="error"||t.type.includes(".error"))&&(i.err=!0,i.errCount++);let u=1;["tool.call","tool.error","llm.call","llm.token_usage","llm.error"].includes(t.type)&&(u=2),i.body.appendChild(O(t,u)),s.firstChild!==i.el&&s.insertBefore(i.el,s.firstChild),t.type==="agent.end"?(t.duration_ms&&(i.dur=t.duration_ms),S(i,i.err?"error":"done")):t.type==="agent.error"?(i.err=!0,i.errCount++,t.duration_ms&&(i.dur=t.duration_ms),S(i,"error")):S(i,i.st);return}let o=O(t,0);s.firstChild&&s.firstChild!==e?s.insertBefore(o,s.firstChild):s.appendChild(o);let p=s.querySelectorAll(".row.standalone");for(;p.length>q;){let i=s.querySelectorAll(".row.standalone");i[i.length-1].parentElement.remove()}}var K=50;function b(t,s,e){e.style.display="none";let r=document.createElement("div");r.className="al";let n=t.severity||"error";for(r.innerHTML='<div class="al-sev '+a(n)+'">['+a(n.toUpperCase())+"] "+a(t.rule_id||"")+'</div><div class="al-title">'+a(t.title||"")+'</div><div class="al-detail">'+a(t.detail||"")+'</div><div class="al-time">'+y(t.ts)+"</div>",s.insertBefore(r,s.firstChild);s.children.length>K+1;)s.removeChild(s.lastChild)}function R(t,s){let e=new EventSource("/openalerts/events");return e.addEventListener("openalerts",r=>{try{t(JSON.parse(r.data))}catch{}}),e.addEventListener("history",r=>{try{let n=JSON.parse(r.data);for(let l of n)t(l)}catch{}}),e.addEventListener("alert",r=>{try{s(JSON.parse(r.data))}catch{}}),e.addEventListener("alert_history",r=>{try{let n=JSON.parse(r.data);for(let l of n)s(l)}catch{}}),e.onopen=()=>{d("sDot").className="dot live",d("sConn").textContent="live"},e.onerror=()=>{d("sDot").className="dot dead",d("sConn").textContent="reconnecting..."},e}var L=null,B={};function D(t,s){fetch("/openalerts/state").then(e=>e.json()).then(e=>{if(e){if(L=e,e.stats&&(d("sEvts").textContent=String(e.stats.events_processed||0),d("sLlm").textContent=String(e.stats.llm_calls||0),d("sTools").textContent=String(e.stats.tool_calls||0),d("sErr").textContent=String((e.stats.llm_errors||0)+(e.stats.tool_errors||0)+(e.stats.agent_errors||0)),d("sTok").textContent=String(e.stats.tokens_used||0)),e.uptime_ms!=null&&(d("sUp").textContent=v(e.uptime_ms)),e.recent_alerts)for(let r of e.recent_alerts){let n=r.rule_id+":"+r.ts;B[n]||(b(r,t,s),B[n]=!0)}if(e.rules){let r=d("rulesEl"),n="<h3>Rules</h3>";for(let l of e.rules){let c=l.status==="fired",o=l.last_fired?" \\xB7 "+y(l.last_fired):"";n+='<div class="rl"><span class="rl-d '+(c?"fired":"ok")+'"></span><span>'+a(l.id)+'</span><span class="rl-s">'+(c?"FIRING":"OK")+o+"</span></div>"}r.innerHTML=n}}}).catch(()=>{})}function T(){let t=L;if(!t){setTimeout(T,500);return}let s=t.stats||{},e="";e+='<div class="h-sec"><h3>System</h3><div class="h-grid">',e+=m("Uptime",v(t.uptime_ms||0),"ok"),e+=m("Events",String(s.events_processed||0),"ok");let r=(s.llm_errors||0)+(s.tool_errors||0)+(s.agent_errors||0);if(e+=m("Errors",String(r),r>0?"bad":"ok"),e+=m("Tokens Used",String(s.tokens_used||0),"ok"),e+=m("LLM Calls",String(s.llm_calls||0),""),e+=m("Tool Calls",String(s.tool_calls||0),""),e+=m("Agent Runs",String(s.agent_starts||0),""),e+=m("Agent Steps",String(s.agent_steps||0),""),e+="</div></div>",e+='<div class="h-sec"><h3>Rules</h3><table class="h-tbl">',e+="<tr><th>Rule</th><th>Status</th><th>Last Fired</th></tr>",t.rules)for(let n of t.rules)e+="<tr><td>"+a(n.id)+"</td><td>"+(n.status==="fired"?'<span style="color:#f85149;font-weight:700">FIRING</span>':'<span style="color:#3fb950">OK</span>')+"</td><td>"+(n.last_fired?y(n.last_fired):"--")+"</td></tr>";if(e+="</table></div>",t.recent_alerts&&t.recent_alerts.length){e+='<div class="h-sec"><h3>Recent Alerts ('+t.recent_alerts.length+')</h3><table class="h-tbl">';for(let n of t.recent_alerts){let l=n.severity==="error"?"#f85149":n.severity==="warn"?"#d29922":"#58a6ff";e+='<tr><td style="color:'+l+'">['+a((n.severity||"?").toUpperCase())+"] "+a(n.rule_id||"")+"</td><td>"+a(n.title||"")+" \\u2014 "+a(n.detail||"")+"</td></tr>"}e+="</table></div>"}d("hC").innerHTML=e}function k(){let t=L;if(!t){setTimeout(k,500);return}let s=t.stats||{},e="";e+=m("Uptime",v(t.uptime_ms||0),"ok"),e+=m("Events",String(s.events_processed||0),"ok"),e+=m("Bus Listeners",String(t.bus_listeners||0),""),d("dbState").innerHTML=e;let r='<div style="font-family:monospace;font-size:10px;line-height:1.6">';for(let c in f){let o=f[c];r+='<div style="margin-bottom:4px"><span style="color:#58a6ff">'+a(c)+"</span> \\u2014 "+o.n+" events, "+o.st+"</div>"}Object.keys(f).length||(r+='<div style="color:#8b949e">No flows yet</div>'),r+="</div>",d("dbEvents").innerHTML=r;let n='<table class="h-tbl">';n+="<tr><th>Rule</th><th>Status</th><th>Cooldown Key</th><th>Last Fired</th></tr>";let l=t.cooldowns||{};for(let c in l)n+="<tr><td>"+a(c)+'</td><td><span style="color:#d29922">cooled</span></td><td>'+a(c)+"</td><td>"+y(l[c])+"</td></tr>";Object.keys(l).length||(n+='<tr><td colspan="4" style="color:#8b949e">No cooldowns active</td></tr>'),n+="</table>",d("dbRules").innerHTML=n}function m(t,s,e){return'<div class="h-card"><div class="lb">'+a(t)+'</div><div class="vl '+(e||"")+'">'+a(s)+"</div></div>"}var I={};(function(){let s={value:0},e={value:!1},r=d("evList"),n=d("emptyMsg"),l=d("evCnt"),c=d("alList"),o=d("alEmpty");r.addEventListener("mouseenter",()=>{e.value=!0}),r.addEventListener("mouseleave",()=>{e.value=!1}),document.querySelectorAll(".tab").forEach(u=>{u.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(A=>A.classList.remove("active")),document.querySelectorAll(".tab-content").forEach(A=>A.classList.remove("active")),u.classList.add("active");let h=u.dataset.tab,w=document.getElementById("tab-"+h);w&&w.classList.add("active"),h==="health"&&T(),h==="debug"&&k()})}),R(u=>N(u,r,n,l,s,e),u=>{let h=u.rule_id+":"+u.ts;I[h]||(b(u,c,o),I[h]=!0)});let i=()=>D(c,o);i(),setInterval(i,4e3),setInterval(H,3e4)})();})();
+<script>"use strict";(()=>{function a(t){let s=document.createElement("div");return s.textContent=t,s.innerHTML}function M(t){if(!t)return"custom";let s=t.split(".")[0];return["llm","tool","agent","token","step"].includes(s)?s:"custom"}function E(t){return t?new Date(t*1e3).toLocaleTimeString("en-US",{hour12:!1,hour:"2-digit",minute:"2-digit",second:"2-digit"}):""}function _(t){return t==null?"":t<1e3?Math.round(t)+"ms":t<6e4?(t/1e3).toFixed(1)+"s":Math.floor(t/6e4)+"m "+Math.round(t%6e4/1e3)+"s"}function v(t){let s=Math.floor(t/1e3),e=Math.floor(s/60),r=Math.floor(e/60);return r>0?r+"h "+e%60+"m":e+"m "+s%60+"s"}function y(t){if(!t)return"never";let s=Date.now()/1e3-t;return s<0&&(s=0),s<1?"just now":s<60?Math.floor(s)+"s ago":s<3600?Math.floor(s/60)+"m ago":Math.floor(s/3600)+"h ago"}var j={"llm.call":["\\u{1F916}","LLM Called"],"llm.error":["\\u26A0","LLM Failed"],"llm.token_usage":["\\u{1F4CA}","Token Usage"],"tool.call":["\\u{1F527}","Tool Executed"],"tool.error":["\\u{1F527}","Tool Failed"],"agent.start":["\\u25B6","Agent Started"],"agent.end":["\\u23F9","Agent Finished"],"agent.error":["\\u{1F6A8}","Agent Error"],"agent.stuck":["\\u23F3","Agent Stuck"],"agent.step":["\\u{1F463}","Agent Step"],"token.limit_exceeded":["\\u{1F6AB}","Token Limit"],"step.limit_warning":["\\u26A0","Step Limit"],custom:["\\u2022","Custom"]};function x(t){return j[t]||["\\u2022",t]}function d(t){return document.getElementById(t)}var U=100,f={},C=[];function F(t,s,e,r){if(f[t])return f[t];let n=document.createElement("div");n.className="flow active";let l=document.createElement("div");l.className="flow-hdr";let c=s.agent_class?s.agent_class+(s.agent_name?" ("+s.agent_name+")":""):t;l.innerHTML='<span class="flow-arr">\\u25BC</span><span class="flow-lbl" title="'+a(c)+'">'+a(c)+'</span><span class="flow-badge active" data-r="st">Running</span><span class="flow-info" data-r="info">'+E(s.ts)+"</span>";let o=document.createElement("div");o.className="flow-summary";let p=document.createElement("div");p.className="flow-body",l.addEventListener("click",()=>{let u=!p.classList.contains("shut");p.classList.toggle("shut",u),o.style.display=u?"none":"flex",l.querySelector(".flow-arr").classList.toggle("shut",u)}),n.appendChild(l),n.appendChild(o),n.appendChild(p);let i={el:n,body:p,hdr:l,summary:o,st:"active",n:0,err:!1,errCount:0,dur:0,tok:0,tools:0,llms:0,steps:0,toolNames:{}};return f[t]=i,C.push(t),r.style.display="none",e.insertBefore(n,e.firstChild),i}function S(t,s){t.st=s,t.el.className="flow "+s;let e=t.hdr.querySelector('[data-r="st"]'),r={active:"Running",done:"Completed",error:"Failed"};e&&(e.className="flow-badge "+s,e.textContent=r[s]||s);let n=t.hdr.querySelector('[data-r="info"]');if(n){let o=[t.n+" events"];t.dur>0&&o.push(_(t.dur)),t.tok>0&&o.push(t.tok+" tok"),t.tools>0&&o.push(t.tools+" tool"+(t.tools>1?"s":"")),t.llms>0&&o.push(t.llms+" llm"),t.steps>0&&o.push(t.steps+" step"+(t.steps>1?"s":"")),n.textContent=o.join(" \\xB7 ")}let l='<span>Events: <span class="fs-v">'+t.n+"</span></span>";t.dur>0&&(l+='<span>Duration: <span class="fs-v">'+_(t.dur)+"</span></span>"),t.tok>0&&(l+='<span>Tokens: <span class="fs-v">'+t.tok+"</span></span>");let c=Object.keys(t.toolNames);c.length&&(l+='<span>Tools: <span class="fs-tools">'+c.map(a).join(", ")+"</span></span>"),t.errCount>0&&(l+='<span>Errors: <span class="fs-err">'+t.errCount+"</span></span>"),t.summary.innerHTML=l}function H(){for(;C.length>U;){let t=C.shift();f[t]&&(f[t].el.remove(),delete f[t])}}var q=200;function J(t){let s=document.createElement("div");s.className="ev-detail";let e="<h4>Identity</h4>";e+=g("Type",t.type||"?"),e+=g("Timestamp",new Date(t.ts*1e3).toISOString()),t.agent_name&&(e+=g("Agent",t.agent_name)),t.agent_class&&(e+=g("Class",t.agent_class)),t.tool_name&&(e+=g("Tool",t.tool_name)),t.outcome&&(e+=g("Outcome",t.outcome)),t.severity&&t.severity!=="info"&&(e+=g("Severity",t.severity)),t.session_id&&(e+=g("Session",t.session_id.slice(0,8))),(t.duration_ms!=null||t.token_count!=null||t.step_number!=null)&&(e+="<h4>Metrics</h4>",t.duration_ms!=null&&(e+=g("Duration",_(t.duration_ms))),t.token_count!=null&&(e+=g("Tokens",String(t.token_count))),t.step_number!=null&&(e+=g("Step",t.step_number+(t.max_steps?"/"+t.max_steps:"")))),t.error&&(e+='<h4>Error</h4><div class="err-block">'+a(t.error)+"</div>");let n=t.meta;if(n){let l=Object.keys(n);if(l.length){e+='<h4>Meta</h4><div class="meta-grid">';for(let c of l){let o=n[c],p=typeof o=="object"?JSON.stringify(o):String(o??"");e+='<span class="mk">'+a(c)+'</span><span class="mv">'+a(p)+"</span>"}e+="</div>"}}return s.innerHTML=e,s}function g(t,s){return'<div class="dv"><span class="dk">'+a(t)+'</span><span class="dd">'+a(String(s))+"</span></div>"}function O(t,s){let e=document.createElement("div"),r=document.createElement("div");r.className="row"+(s===0?" standalone":s>1?" deep":"");let n=M(t.type),l=x(t.type),c=t.outcome||"",o='<div class="r-main">';o+='<span class="r-time">'+E(t.ts)+"</span>",o+='<span class="r-icon">'+l[0]+"</span>",t.severity&&t.severity!=="info"&&(o+='<span class="sev-dot '+t.severity+'"></span>'),o+='<span class="r-type '+n+'">'+a(l[1])+"</span>",c&&(o+='<span class="r-oc '+(c==="success"?"success":"error")+'">'+(c==="success"?"\\u2713 OK":"\\u2717 "+c)+"</span>"),o+='<span class="r-pills">',t.tool_name&&(o+='<span class="p t">'+a(t.tool_name)+"</span>"),t.duration_ms!=null&&(o+='<span class="p d">'+_(t.duration_ms)+"</span>"),t.token_count!=null&&(o+='<span class="p tk">'+t.token_count+" tok</span>"),t.step_number!=null&&(o+='<span class="p step">step '+t.step_number+(t.max_steps?"/"+t.max_steps:"")+"</span>"),t.agent_class&&s===0&&(o+='<span class="p agent">'+a(t.agent_class)+"</span>"),o+="</span></div>";let p=[];if(t.error){let u=t.error.length>120?t.error.slice(0,117)+"...":t.error;p.push('<span class="err">'+a(u)+"</span>")}t.agent_name&&s===0&&p.push('<span class="dim">agent: '+a(t.agent_name)+"</span>"),p.length&&(o+='<div class="r-det">'+p.join(" \\xB7 ")+"</div>"),r.innerHTML=o,e.appendChild(r);let i=J(t);return e.appendChild(i),r.addEventListener("click",()=>i.classList.toggle("open")),e}function N(t,s,e,r,n,l){if(n.value++,r.textContent=String(n.value),e.style.display="none",l.value)return;let c=t.agent_name||t.agent_class;if(c&&(f[c]||t.type==="agent.start")){let i=F(c,t,s,e);i.n++,t.token_count&&(i.tok+=t.token_count),(t.type==="tool.call"||t.type==="tool.error")&&(i.tools++,t.tool_name&&(i.toolNames[t.tool_name]=!0)),t.type==="llm.call"&&i.llms++,t.type==="agent.step"&&i.steps++,(t.outcome==="error"||t.type.includes(".error"))&&(i.err=!0,i.errCount++);let u=1;["tool.call","tool.error","llm.call","llm.token_usage","llm.error"].includes(t.type)&&(u=2),i.body.appendChild(O(t,u)),s.firstChild!==i.el&&s.insertBefore(i.el,s.firstChild),t.type==="agent.end"?(t.duration_ms&&(i.dur=t.duration_ms),S(i,i.err?"error":"done")):t.type==="agent.error"?(i.err=!0,i.errCount++,t.duration_ms&&(i.dur=t.duration_ms),S(i,"error")):S(i,i.st);return}let o=O(t,0);s.firstChild&&s.firstChild!==e?s.insertBefore(o,s.firstChild):s.appendChild(o);let p=s.querySelectorAll(".row.standalone");for(;p.length>q;){let i=s.querySelectorAll(".row.standalone");i[i.length-1].parentElement.remove()}}var K=50;function b(t,s,e){e.style.display="none";let r=document.createElement("div");r.className="al";let n=t.severity||"error";for(r.innerHTML='<div class="al-sev '+a(n)+'">['+a(n.toUpperCase())+"] "+a(t.rule_id||"")+'</div><div class="al-title">'+a(t.title||"")+'</div><div class="al-detail">'+a(t.detail||"")+'</div><div class="al-time">'+y(t.ts)+"</div>",s.insertBefore(r,s.firstChild);s.children.length>K+1;)s.removeChild(s.lastChild)}
+
+/* ========== Sessions Panel ========== */
+var sessMap={},selectedSessId=null,sessActions={};
+
+function sessStatusClass(st){
+  if(st==="active")return"active";
+  if(st==="completed")return"completed";
+  if(st==="error")return"error";
+  return"idle";
+}
+
+function renderSessCard(s){
+  let cls=sessStatusClass(s.status);
+  let name=s.agent_class?(s.agent_class+(s.agent_name?" ("+s.agent_name+")":"")):(s.agent_name||s.session_id.slice(0,8));
+  let meta=[];
+  meta.push("steps: "+s.step_count);
+  meta.push("tools: "+s.tool_call_count);
+  meta.push("llm: "+s.llm_call_count);
+  let totalTok=s.total_input_tokens+s.total_output_tokens;
+  if(totalTok>0)meta.push("tokens: "+totalTok);
+  if(s.duration_ms!=null)meta.push("dur: "+_(s.duration_ms));
+  else if(s.status==="active"&&s.started_at)meta.push("dur: "+_((Date.now()/1000-s.started_at)*1000));
+  if(s.total_cost_usd>0)meta.push("cost: $"+s.total_cost_usd.toFixed(4));
+  if(s.error){let short=s.error.length>60?s.error.slice(0,57)+"...":s.error;meta.push('<span style="color:#f85149">err: '+a(short)+"</span>")}
+
+  let h='<div class="sess-card-hdr">';
+  h+='<span class="flow-badge '+cls+'">'+a(s.status.toUpperCase())+"</span>";
+  h+='<span class="sess-card-name" title="'+a(name)+'">'+a(name)+"</span>";
+  h+="</div>";
+  h+='<div class="sess-card-meta">'+meta.join(" &middot; ")+"</div>";
+  h+='<div style="font-size:9px;color:#484f58;margin-top:2px">'+E(s.started_at)+" &middot; "+s.session_id.slice(0,8)+"</div>";
+  return h;
+}
+
+function upsertSessCard(s){
+  let list=d("sessList"),empty=d("sessEmpty"),cnt=d("sessCnt");
+  empty.style.display="none";
+
+  let existing=sessMap[s.session_id];
+  if(existing){
+    existing.data=s;
+    existing.el.innerHTML=renderSessCard(s);
+    if(selectedSessId===s.session_id)existing.el.classList.add("selected");
+  }else{
+    let el=document.createElement("div");
+    el.className="sess-card";
+    el.innerHTML=renderSessCard(s);
+    el.addEventListener("click",()=>selectSession(s.session_id));
+    sessMap[s.session_id]={el:el,data:s};
+    list.insertBefore(el,list.firstChild);
+  }
+  cnt.textContent=String(Object.keys(sessMap).length);
+}
+
+function selectSession(sid){
+  selectedSessId=sid;
+  Object.values(sessMap).forEach(v=>{v.el.classList.remove("selected")});
+  if(sessMap[sid])sessMap[sid].el.classList.add("selected");
+  // Fetch historical actions from REST API if we don't have them yet
+  if(!sessActions[sid]||sessActions[sid].length===0){
+    fetch("/openalerts/actions?session_id="+encodeURIComponent(sid)).then(r=>r.json()).then(actions=>{
+      if(actions&&actions.length){
+        if(!sessActions[sid])sessActions[sid]=[];
+        let existing=new Set(sessActions[sid].map(a=>a.id));
+        for(let act of actions){if(!existing.has(act.id))sessActions[sid].push(act)}
+        if(selectedSessId===sid)renderActions(sid);
+      }
+    }).catch(()=>{});
+  }
+  renderActions(sid);
+}
+
+function renderActions(sid){
+  let list=d("actList"),empty=d("actEmpty"),cnt=d("actCnt");
+  list.innerHTML="";
+  let actions=(sessActions[sid]||[]).slice().sort((a,b)=>a.seq-b.seq);
+  cnt.textContent=String(actions.length);
+  if(!actions.length){
+    list.appendChild(empty);
+    empty.style.display="block";
+    empty.textContent=sid?"No actions recorded for this session.":"Select a session to view its actions.";
+    return;
+  }
+  empty.style.display="none";
+  for(let act of actions){
+    let el=document.createElement("div");
+    el.className="row";
+    let ic=x(act.type);
+    let cat=M(act.type);
+    let h='<div class="r-main">';
+    h+='<span class="r-time">'+E(act.timestamp)+"</span>";
+    h+='<span class="r-icon">'+ic[0]+"</span>";
+    h+='<span class="r-type '+cat+'">'+a(ic[1])+"</span>";
+    h+='<span class="r-pills">';
+    if(act.tool_name)h+='<span class="p t">'+a(act.tool_name)+"</span>";
+    if(act.duration_ms!=null)h+='<span class="p d">'+_(act.duration_ms)+"</span>";
+    if(act.token_count!=null)h+='<span class="p tk">'+act.token_count+" tok</span>";
+    h+="</span></div>";
+    if(act.error)h+='<div class="r-det"><span class="err">'+a(act.error.length>120?act.error.slice(0,117)+"...":act.error)+"</span></div>";
+    el.innerHTML=h;
+    list.appendChild(el);
+  }
+}
+
+function addAction(act){
+  if(!act.session_id)return;
+  if(!sessActions[act.session_id])sessActions[act.session_id]=[];
+  sessActions[act.session_id].push(act);
+  if(selectedSessId===act.session_id)renderActions(act.session_id);
+  d("actCnt").textContent=String((sessActions[selectedSessId]||[]).length);
+}
+
+/* ========== SSE + State ========== */
+
+function R(t,s,onSessUpdate,onAction){let e=new EventSource("/openalerts/events");return e.addEventListener("openalerts",r=>{try{t(JSON.parse(r.data))}catch{}}),e.addEventListener("history",r=>{try{let n=JSON.parse(r.data);for(let l of n)t(l)}catch{}}),e.addEventListener("alert",r=>{try{s(JSON.parse(r.data))}catch{}}),e.addEventListener("alert_history",r=>{try{let n=JSON.parse(r.data);for(let l of n)s(l)}catch{}}),e.addEventListener("session_update",r=>{try{onSessUpdate(JSON.parse(r.data))}catch{}}),e.addEventListener("session_history",r=>{try{let n=JSON.parse(r.data);for(let l of n)onSessUpdate(l)}catch{}}),e.addEventListener("action",r=>{try{onAction(JSON.parse(r.data))}catch{}}),e.onopen=()=>{d("sDot").className="dot live",d("sConn").textContent="live"},e.onerror=()=>{d("sDot").className="dot dead",d("sConn").textContent="reconnecting..."},e}var L=null,B={};function D(t,s){fetch("/openalerts/state").then(e=>e.json()).then(e=>{if(e){if(L=e,e.stats&&(d("sEvts").textContent=String(e.stats.events_processed||0),d("sLlm").textContent=String(e.stats.llm_calls||0),d("sTools").textContent=String(e.stats.tool_calls||0),d("sErr").textContent=String((e.stats.llm_errors||0)+(e.stats.tool_errors||0)+(e.stats.agent_errors||0)),d("sTok").textContent=String(e.stats.tokens_used||0)),e.collections&&(d("sSess").textContent=String(e.collections.sessions||0)),e.uptime_ms!=null&&(d("sUp").textContent=v(e.uptime_ms)),e.recent_alerts)for(let r of e.recent_alerts){let n=r.rule_id+":"+r.ts;B[n]||(b(r,t,s),B[n]=!0)}if(e.rules){let r=d("rulesEl"),n="<h3>Rules</h3>";for(let l of e.rules){let c=l.status==="fired",o=l.last_fired?" \\xB7 "+y(l.last_fired):"";n+='<div class="rl"><span class="rl-d '+(c?"fired":"ok")+'"></span><span>'+a(l.id)+'</span><span class="rl-s">'+(c?"FIRING":"OK")+o+"</span></div>"}r.innerHTML=n}}}).catch(()=>{})}function T(){let t=L;if(!t){setTimeout(T,500);return}let s=t.stats||{},e="";e+='<div class="h-sec"><h3>System</h3><div class="h-grid">',e+=m("Uptime",v(t.uptime_ms||0),"ok"),e+=m("Events",String(s.events_processed||0),"ok");let r=(s.llm_errors||0)+(s.tool_errors||0)+(s.agent_errors||0);e+=m("Errors",String(r),r>0?"bad":"ok"),e+=m("Tokens Used",String(s.tokens_used||0),"ok"),e+=m("LLM Calls",String(s.llm_calls||0),""),e+=m("Tool Calls",String(s.tool_calls||0),""),e+=m("Agent Runs",String(s.agent_starts||0),""),e+=m("Agent Steps",String(s.agent_steps||0),"");if(t.collections){e+=m("Sessions",String(t.collections.sessions||0),""),e+=m("Actions",String(t.collections.actions||0),"")}e+="</div></div>";e+='<div class="h-sec"><h3>Rules</h3><table class="h-tbl">';e+="<tr><th>Rule</th><th>Status</th><th>Last Fired</th></tr>";if(t.rules)for(let n of t.rules)e+="<tr><td>"+a(n.id)+"</td><td>"+(n.status==="fired"?'<span style="color:#f85149;font-weight:700">FIRING</span>':'<span style="color:#3fb950">OK</span>')+"</td><td>"+(n.last_fired?y(n.last_fired):"--")+"</td></tr>";if(e+="</table></div>",t.recent_alerts&&t.recent_alerts.length){e+='<div class="h-sec"><h3>Recent Alerts ('+t.recent_alerts.length+')</h3><table class="h-tbl"><tr><th>Alert</th><th>Detail</th></tr>';for(let n of t.recent_alerts){let l=n.severity==="error"?"#f85149":n.severity==="warn"?"#d29922":"#58a6ff";e+='<tr><td style="color:'+l+'">['+a((n.severity||"?").toUpperCase())+"] "+a(n.rule_id||"")+"</td><td>"+a(n.title||"")+" \\u2014 "+a(n.detail||"")+"</td></tr>"}e+="</table></div>"}d("hC").innerHTML=e}function k(){let t=L;if(!t){setTimeout(k,500);return}let s=t.stats||{},e="";e+=m("Uptime",v(t.uptime_ms||0),"ok"),e+=m("Events",String(s.events_processed||0),"ok"),e+=m("Bus Listeners",String(t.bus_listeners||0),"");if(t.collections){e+=m("Sessions",String(t.collections.sessions||0),""),e+=m("Actions",String(t.collections.actions||0),"")}d("dbState").innerHTML=e;let r='<div style="font-family:monospace;font-size:10px;line-height:1.6">';for(let c in f){let o=f[c];r+='<div style="margin-bottom:4px"><span style="color:#58a6ff">'+a(c)+"</span> \\u2014 "+o.n+" events, "+o.st+"</div>"}Object.keys(f).length||(r+='<div style="color:#8b949e">No flows yet</div>'),r+="</div>",d("dbEvents").innerHTML=r;let n='<table class="h-tbl">';n+="<tr><th>Rule</th><th>Status</th><th>Cooldown Key</th><th>Last Fired</th></tr>";let l=t.cooldowns||{};for(let c in l){let cd=l[c],cdTs=typeof cd==="object"?cd.ts:cd,cdRule=typeof cd==="object"?(cd.rule_id||c):c;n+="<tr><td>"+a(cdRule)+'</td><td><span style="color:#d29922">cooled</span></td><td>'+a(c)+"</td><td>"+y(cdTs)+"</td></tr>"}Object.keys(l).length||(n+='<tr><td colspan="4" style="color:#8b949e">No cooldowns active</td></tr>'),n+="</table>",d("dbRules").innerHTML=n}function m(t,s,e){return'<div class="h-card"><div class="lb">'+a(t)+'</div><div class="vl '+(e||"")+'">'+a(s)+"</div></div>"}var I={};(function(){let s={value:0},e={value:!1},r=d("evList"),n=d("emptyMsg"),l=d("evCnt"),c=d("alList"),o=d("alEmpty");r.addEventListener("mouseenter",()=>{e.value=!0}),r.addEventListener("mouseleave",()=>{e.value=!1}),document.querySelectorAll(".tab").forEach(u=>{u.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(A=>A.classList.remove("active")),document.querySelectorAll(".tab-content").forEach(A=>A.classList.remove("active")),u.classList.add("active");let h=u.dataset.tab,w=document.getElementById("tab-"+h);w&&w.classList.add("active"),h==="health"&&T(),h==="debug"&&k()})});R(u=>N(u,r,n,l,s,e),u=>{let h=u.rule_id+":"+u.ts;I[h]||(b(u,c,o),I[h]=!0)},u=>upsertSessCard(u),u=>addAction(u));let i=()=>D(c,o);i(),setInterval(i,4e3),setInterval(H,3e4)})();})();
 </script>
 </body>
 </html>
