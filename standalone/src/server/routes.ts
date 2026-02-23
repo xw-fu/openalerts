@@ -67,7 +67,8 @@ export function createRouter(
       try {
         json(res, getDashboardState(db));
       } catch (err) {
-        json(res, { error: String(err) }, 500);
+        console.error("Error while fetching dashboard state:", err);
+        json(res, { error: "Internal server error" }, 500);
       }
       return;
     }
