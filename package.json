@@ -12,5 +12,9 @@
     "build:dashboard": "npm run build --workspace=dashboard",
     "typecheck": "npm run typecheck --workspace=node",
     "clean": "npm run clean --workspaces --if-present"
+  },
+  "overrides": {
+    "tar": "^7.5.8",
+    "minimatch": "^10.2.1"
   }
 }
