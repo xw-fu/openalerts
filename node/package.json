@@ -1,6 +1,6 @@
 {
   "name": "openalerts",
-  "version": "0.1.0",
+  "version": "0.2.6",
   "type": "module",
   "description": "Standalone monitoring daemon for OpenClaw — live dashboard, alerts via Telegram/webhook, REST API",
   "author": "Nilay",
