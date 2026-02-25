@@ -9,7 +9,7 @@ No code changes to OpenClaw needed — runs as a separate process alongside it.
 ## Install
 
 ```bash
-npm install -g openalerts
+npm install -g @steadwing/openalerts
 ```
 
 > Requires **Node.js ≥ 22.5.0** (uses the built-in `node:sqlite` module — no native builds).

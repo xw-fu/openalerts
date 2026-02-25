@@ -150,40 +150,53 @@ await openalerts.shutdown()             # optional — runs automatically on exi
 ### Install
 
 ```bash
-openclaw plugins install @steadwing/openalerts
+npm install -g @steadwing/openalerts
 ```
 
-### Configure
+> Requires **Node.js >= 22.5.0** (uses the built-in `node:sqlite` module — no native builds).
 
-If you already have a channel paired with OpenClaw (e.g. Telegram via `openclaw pair`), **no config is needed** - OpenAlerts auto-detects where to send alerts.
-
-Otherwise, set it explicitly in `openclaw.json`:
-
-```jsonc
-{
-  "plugins": {
-    "entries": {
-      "openalerts": {
-        "enabled": true,
-        "config": {
-          "alertChannel": "telegram", // telegram | discord | slack | whatsapp | signal
-          "alertTo": "YOUR_CHAT_ID"
-        }
-      }
-    }
-  }
-}
-```
-
-**Auto-detection priority:** explicit config > static `allowFrom` in channel config > pairing store.
-
-### Restart & verify
+### Usage
 
 ```bash
-openclaw gateway stop && openclaw gateway run
+# 1. Create default config (auto-detects your OpenClaw gateway token)
+openalerts init
+
+# 2. Edit config to add your alert channel
+#    ~/.openalerts/config.json
+
+# 3. Start monitoring
+openalerts start
 ```
 
-Send `/health` to your bot. You should get a live status report back - zero LLM tokens consumed.
+Dashboard at **http://127.0.0.1:4242** — the gateway overlay dismisses automatically once connected. No code changes to OpenClaw needed — runs as a separate process alongside it.
+
+### CLI
+
+| Command | Description |
+|---|---|
+| `openalerts init` | Create default config at `~/.openalerts/config.json` |
+| `openalerts start` | Start the monitoring daemon |
+| `openalerts status` | Print live engine state (daemon must be running) |
+| `openalerts test` | Fire a test alert through all configured channels |
+
+### Configuration
+
+`~/.openalerts/config.json` (created by `openalerts init`):
+
+```json
+{
+  "gatewayUrl": "ws://127.0.0.1:18789",
+  "gatewayToken": "<auto-detected from ~/.openclaw/openclaw.json>",
+  "stateDir": "~/.openalerts",
+  "server": { "port": 4242, "host": "127.0.0.1" },
+  "channels": [
+    { "type": "telegram", "token": "BOT_TOKEN", "chatId": "CHAT_ID" },
+    { "type": "webhook", "webhookUrl": "https://your-endpoint" },
+    { "type": "console" }
+  ],
+  "quiet": false
+}
+```
 
 </details>
 
@@ -195,7 +208,7 @@ A real-time web dashboard starts automatically and shows everything happening in
 - **Health** - Rule status, alert history, system stats
 - **Debug** - State snapshot for troubleshooting
 
-Python: [http://localhost:9464/openalerts](http://localhost:9464/openalerts) | Node: `http://127.0.0.1:18789/openalerts`
+Python: [http://localhost:9464/openalerts](http://localhost:9464/openalerts) | Node: [http://127.0.0.1:4242](http://127.0.0.1:4242)
 
 ## Alert Rules
 
