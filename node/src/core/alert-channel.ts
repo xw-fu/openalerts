@@ -1,56 +1,33 @@
-import { formatAlertMessage } from "./formatter.js";
 import type { AlertChannel, AlertEvent, OpenAlertsLogger } from "./types.js";
+import { formatAlertMessage as formatAlert } from "./formatter.js";
 
-/**
- * Dispatches alerts to all registered channels.
- * Fire-and-forget: individual channel failures don't block others.
- */
 export class AlertDispatcher {
-  private channels: AlertChannel[] = [];
+  private channels: AlertChannel[];
   private logger: OpenAlertsLogger;
-  private diagnosisHint?: string;
+  private diagnosisHint: string;
 
-  constructor(opts: {
-    channels?: AlertChannel[];
-    logger?: OpenAlertsLogger;
-    diagnosisHint?: string;
-  }) {
-    this.channels = opts.channels ?? [];
+  constructor(opts: { channels?: AlertChannel[]; logger?: OpenAlertsLogger; diagnosisHint?: string }) {
+    this.channels = opts.channels ? [...opts.channels] : [];
     this.logger = opts.logger ?? console;
-    this.diagnosisHint = opts.diagnosisHint;
+    this.diagnosisHint = opts.diagnosisHint ?? "";
   }
 
-  /** Add a channel at runtime. */
   addChannel(channel: AlertChannel): void {
     this.channels.push(channel);
   }
 
-  /** Send an alert to all registered channels. */
+  get hasChannels(): boolean { return this.channels.length > 0; }
+  get channelCount(): number { return this.channels.length; }
+
   async dispatch(alert: AlertEvent): Promise<void> {
     if (this.channels.length === 0) return;
-
-    const formatted = formatAlertMessage(alert, {
-      diagnosisHint: this.diagnosisHint,
-    });
-
-    const results = this.channels.map(async (ch) => {
-      try {
-        await ch.send(alert, formatted);
-      } catch (err) {
-        this.logger.error(`[openalerts] alert channel "${ch.name}" failed: ${String(err)}`);
-      }
-    });
-
-    await Promise.allSettled(results);
-  }
-
-  /** Whether any channels are registered. */
-  get hasChannels(): boolean {
-    return this.channels.length > 0;
-  }
-
-  /** Number of registered channels. */
-  get channelCount(): number {
-    return this.channels.length;
+    const formatted = formatAlert(alert, { diagnosisHint: this.diagnosisHint });
+    await Promise.allSettled(
+      this.channels.map(ch =>
+        Promise.resolve(ch.send(alert, formatted)).catch(err =>
+          this.logger.warn(`[channel:${ch.name}] send failed: ${String(err)}`)
+        )
+      )
+    );
   }
 }
