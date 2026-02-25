@@ -14,6 +14,7 @@ const CSS = `
   .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:7px;flex-shrink:0}
   .dot.live{background:var(--green);animation:pulse 2s infinite}
   .dot.dead{background:var(--red)}
+  .dot.warn{background:var(--yellow);animation:pulse 2s infinite}
   .hdr-stat{color:var(--muted);font-size:12px}
   .hdr-stat b{color:var(--text);font-weight:500}
   .badge{padding:2px 7px;border-radius:2px;font-size:11px;font-weight:600;letter-spacing:.5px}
@@ -113,6 +114,9 @@ const CSS = `
   .gate-sub{font-size:12px;color:var(--muted);text-align:center;max-width:340px;line-height:1.7}
   .gate-url{font-family:var(--font);font-size:12px;color:var(--blue);background:var(--surface);padding:3px 10px;border:1px solid var(--border)}
   .gate-dot{width:6px;height:6px;border-radius:50%;background:var(--yellow);animation:pulse 1.4s infinite;display:inline-block;margin-right:6px}
+  .gate-skip{margin-top:8px;font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline;opacity:0;transition:opacity .4s}
+  .gate-skip:hover{color:var(--text)}
+  .gate-skip.visible{opacity:1}
   /* ── Live Monitor ── */
   #tab-live{margin:0}
   .live-layout{display:flex;height:calc(100vh - 88px);min-height:500px;overflow:hidden}
@@ -156,6 +160,7 @@ const BODY = `
     <span class="gate-url" id="gate-url">ws://127.0.0.1:18789</span>
   </div>
   <div class="gate-sub" style="font-size:12px">Make sure OpenClaw is running: <code style="font-family:var(--font)">openclaw gateway run</code></div>
+  <div class="gate-skip" id="gate-skip" onclick="dismissGate()">Continue without gateway</div>
 </div>
 <header>
   <h1><span class="dot dead" id="sDot"></span>OpenAlerts</h1>
@@ -221,19 +226,24 @@ const BODY = `
 const SCRIPT = `
 /* ── Gateway gate ─────────────────────────────────────────────────────────── */
 var gateOpen = true;
-function dismissGate(){
+function dismissGate(connected){
   if(!gateOpen) return;
   gateOpen = false;
   var g = document.getElementById('gw-gate');
   if(g){ g.classList.add('hidden'); setTimeout(function(){ g.style.display='none'; }, 450); }
   var dot=document.getElementById('sDot');
-  if(dot) dot.className='dot live';
   var hc=document.getElementById('hdr-conn');
-  if(hc){hc.style.color='';hc.textContent='connected';}
+  if(connected){
+    if(dot) dot.className='dot live';
+    if(hc){hc.style.color='';hc.textContent='connected';}
+  } else {
+    if(dot) dot.className='dot warn';
+    if(hc){hc.style.color='var(--yellow)';hc.textContent='gateway offline';}
+  }
 }
 function checkGateway(){
   fetch('/api/engine').then(function(r){ return r.json(); }).then(function(d){
-    if(d.gatewayConnected) dismissGate();
+    if(d.gatewayConnected) dismissGate(true);
   }).catch(function(){});
 }
 /* Check immediately on load, then every 3s until connected */
@@ -242,6 +252,14 @@ var gateTimer = setInterval(function(){
   if(!gateOpen){ clearInterval(gateTimer); return; }
   checkGateway();
 }, 3000);
+/* Show skip button after 3s, auto-dismiss after 10s */
+setTimeout(function(){
+  var sk=document.getElementById('gate-skip');
+  if(sk && gateOpen) sk.classList.add('visible');
+}, 3000);
+setTimeout(function(){
+  if(gateOpen) dismissGate();
+}, 10000);
 
 function showTab(name,btn){
   document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
@@ -701,7 +719,7 @@ function connect(){
   });
   es.addEventListener('health',function(e){
     var h=JSON.parse(e.data);
-    dismissGate();
+    dismissGate(true);
     handleLiveHealth(h);
     /* add a heartbeat row to the activity feed & heartbeat log */
     var hb={ts:h.ts||Date.now(),status:'ok',gateway_connected:1,queue_depth:h.queueDepth||0,active_sessions:h.activeSessions||0};
