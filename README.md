@@ -28,8 +28,9 @@ AI agents fail silently. LLM errors, stuck sessions, token blowups — nobody kn
 
 OpenAlerts watches your agent in real-time and alerts you the moment something goes wrong. Runs fully locally — no external services, no cloud dependencies, everything stays on your machine.
 
+## Dashboard 
 <p align="center">
-  <img src="assets/dashboard.png" alt="OpenAlerts Dashboard" width="800">
+  <img width="1728" height="919" alt="Screenshot 2026-02-25 at 8 30 59 AM" src="https://github.com/user-attachments/assets/f385477b-817a-47c2-8591-e4ef82529ade" />
 </p>
 
 ## Quickstart
