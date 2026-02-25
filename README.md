@@ -24,9 +24,9 @@
 
 ---
 
-AI agents fail silently. LLM errors, stuck sessions, token blowups — nobody knows until a user complains.
+AI agents fail silently. LLM errors, stuck sessions, token blowups - nobody knows until a user complains.
 
-OpenAlerts watches your agent in real-time and alerts you the moment something goes wrong. Runs fully locally — no external services, no cloud dependencies, everything stays on your machine.
+OpenAlerts watches your agent in real-time and alerts you the moment something goes wrong. Runs fully locally - no external services, no cloud dependencies, everything stays on your machine.
 
 ## Dashboard 
 <p align="center">
@@ -36,7 +36,7 @@ OpenAlerts watches your agent in real-time and alerts you the moment something g
 ## Quickstart
 
 <details open>
-<summary><b>Python</b> — for <a href="https://github.com/FoundationAgents/OpenManus">OpenManus</a></summary>
+<summary><b>Python</b> - for <a href="https://github.com/FoundationAgents/OpenManus">OpenManus</a></summary>
 
 ### Install
 
@@ -69,7 +69,7 @@ That's it. OpenAlerts monkey-patches OpenManus internals (`BaseAgent.run`, `ReAc
 
 ### Standalone Dashboard
 
-By default, the dashboard runs in-process — when your agent exits, the dashboard dies too. For a **persistent dashboard** that survives agent restarts:
+By default, the dashboard runs in-process - when your agent exits, the dashboard dies too. For a **persistent dashboard** that survives agent restarts:
 
 ```bash
 # Terminal 1 — start persistent dashboard (stays running)
@@ -148,7 +148,7 @@ await openalerts.shutdown()             # optional — runs automatically on exi
 </details>
 
 <details>
-<summary><b>Node</b> — for <a href="https://github.com/openclaw/openclaw">OpenClaw</a></summary>
+<summary><b>Node</b> - for <a href="https://github.com/openclaw/openclaw">OpenClaw</a></summary>
 
 ### Install
 
@@ -158,7 +158,7 @@ openclaw plugins install @steadwing/openalerts
 
 ### Configure
 
-If you already have a channel paired with OpenClaw (e.g. Telegram via `openclaw pair`), **no config is needed** — OpenAlerts auto-detects where to send alerts.
+If you already have a channel paired with OpenClaw (e.g. Telegram via `openclaw pair`), **no config is needed** - OpenAlerts auto-detects where to send alerts.
 
 Otherwise, set it explicitly in `openclaw.json`:
 
@@ -186,7 +186,7 @@ Otherwise, set it explicitly in `openclaw.json`:
 openclaw gateway stop && openclaw gateway run
 ```
 
-Send `/health` to your bot. You should get a live status report back — zero LLM tokens consumed.
+Send `/health` to your bot. You should get a live status report back - zero LLM tokens consumed.
 
 </details>
 
@@ -194,9 +194,9 @@ Send `/health` to your bot. You should get a live status report back — zero LL
 
 A real-time web dashboard starts automatically and shows everything happening inside your agents:
 
-- **Activity** — Step-by-step execution timeline with tool calls, LLM usage, costs
-- **Health** — Rule status, alert history, system stats
-- **Debug** — State snapshot for troubleshooting
+- **Activity** - Step-by-step execution timeline with tool calls, LLM usage, costs
+- **Health** - Rule status, alert history, system stats
+- **Debug** - State snapshot for troubleshooting
 
 Python: [http://localhost:9464/openalerts](http://localhost:9464/openalerts) | Node: `http://127.0.0.1:18789/openalerts`
 
@@ -210,8 +210,8 @@ All rules run against every event in real-time. Thresholds and cooldowns are con
 | `tool-errors` | Tool execution failures in 1-min window | WARN | `1` error |
 | `high-error-rate` | Failure rate over last 20 calls | ERROR | `50`% |
 | `agent-stuck` / `session-stuck` | Agent idle too long | WARN | `120000` ms |
-| `token-limit` | Token limit exceeded | ERROR | — |
-| `step-limit-warning` | Agent reaches 80% of max_steps | WARN | — |
+| `token-limit` | Token limit exceeded | ERROR | - |
+| `step-limit-warning` | Agent reaches 80% of max_steps | WARN | - |
 | `infra-errors` | Infrastructure errors (Node) | ERROR | `1` error |
 | `gateway-down` | No heartbeat received (Node) | CRITICAL | `30000` ms |
 | `queue-depth` | Queued items piling up (Node) | WARN | `10` items |
@@ -219,12 +219,12 @@ All rules run against every event in real-time. Thresholds and cooldowns are con
 
 Every rule also accepts:
 
-- **`enabled`** — `false` to disable (default: `true`)
-- **`cooldown`** — time before the same rule can fire again (default: 15 min)
+- **`enabled`** - `false` to disable (default: `true`)
+- **`cooldown`** - time before the same rule can fire again (default: 15 min)
 
 ## LLM-Enriched Alerts
 
-OpenAlerts can optionally use your configured LLM to enrich alerts with a human-friendly summary and an actionable suggestion. **Disabled by default** — opt in with `"llmEnriched": true` (Node plugin).
+OpenAlerts can optionally use your configured LLM to enrich alerts with a human-friendly summary and an actionable suggestion. **Disabled by default** - opt in with `"llmEnriched": true` (Node plugin).
 
 ```
 1 agent error(s) on unknown in the last minute. Last: 401 Incorrect API key...
