@@ -6,8 +6,6 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/openalerts"><img src="https://img.shields.io/pypi/v/openalerts?style=flat&color=blue" alt="PyPI"></a>
-  <a href="https://pypi.org/project/openalerts"><img src="https://img.shields.io/pypi/dm/openalerts?style=flat&color=blue" alt="PyPI downloads"></a>
   <a href="https://www.npmjs.com/package/@steadwing/openalerts"><img src="https://img.shields.io/npm/v/@steadwing/openalerts?style=flat&color=blue" alt="npm"></a>
   <a href="https://www.npmjs.com/package/@steadwing/openalerts"><img src="https://img.shields.io/npm/dt/@steadwing/openalerts?style=flat&color=blue" alt="npm downloads"></a>
   <a href="https://github.com/steadwing/openalerts/stargazers"><img src="https://img.shields.io/github/stars/steadwing/openalerts?style=flat" alt="GitHub stars"></a>
