@@ -52,11 +52,8 @@ import openalerts
 from app.agent.manus import Manus
 
 async def main():
-    await openalerts.init({
-        "channels": [
-            {"type": "slack", "webhook_url": "https://hooks.slack.com/services/..."},
-        ]
-    })
+    # Dashboard starts at http://localhost:9464/openalerts
+    await openalerts.init({})
 
     # Use your agents as normal — they're automatically monitored
     agent = Manus()
@@ -65,7 +62,9 @@ async def main():
 asyncio.run(main())
 ```
 
-That's it. OpenAlerts monkey-patches OpenManus internals (`BaseAgent.run`, `ReActAgent.step`, `ToolCallAgent.execute_tool`, `LLM.ask_tool`, `LLM.ask`) so every event flows through the monitoring engine. Cleanup happens automatically on exit. All events are persisted to `~/.openalerts/` as JSONL.
+That's it. A real-time dashboard starts at [http://localhost:9464/openalerts](http://localhost:9464/openalerts). OpenAlerts monkey-patches OpenManus internals (`BaseAgent.run`, `ReActAgent.step`, `ToolCallAgent.execute_tool`, `LLM.ask_tool`, `LLM.ask`) so every event flows through the monitoring engine. Cleanup happens automatically on exit. All events are persisted to `~/.openalerts/` as JSONL.
+
+Optionally, add [channels](#channels) (Slack, Discord, webhooks) to get alerts delivered when things go wrong.
 
 ### Standalone Dashboard
 
@@ -260,10 +259,6 @@ cd python && pip install -e ".[dev]"
 pytest
 ```
 
-## License
-
-Apache-2.0
-
 ---
 
-<p align="center">Made by <a href="https://github.com/steadwing">Steadwing</a></p>
+<p align="center">Made with ❤️ by Steadwing Team</p>
