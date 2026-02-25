@@ -1,142 +1,59 @@
+/**
+ * JSONL persistence for openalerts.
+ * Keeps a flat events.jsonl alongside SQLite as a backup/audit log.
+ */
 import fs from "node:fs";
 import path from "node:path";
-import { DEFAULTS, LOG_FILENAME, STORE_DIR_NAME, type StoredEvent } from "./types.js";
+import type { StoredEvent } from "./types.js";
+import { LOG_FILENAME } from "./types.js";
 
-function resolveDir(stateDir: string): string {
-  return path.join(stateDir, STORE_DIR_NAME);
-}
-
-function resolveLogPath(stateDir: string): string {
-  return path.join(resolveDir(stateDir), LOG_FILENAME);
-}
-
-function ensureDir(stateDir: string): void {
-  const dir = resolveDir(stateDir);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-}
-
-/** Append a single event to the JSONL log. */
 export function appendEvent(stateDir: string, event: StoredEvent): void {
-  ensureDir(stateDir);
-  const line = JSON.stringify(event) + "\n";
-  fs.appendFileSync(resolveLogPath(stateDir), line, "utf-8");
+  const logPath = path.join(stateDir, LOG_FILENAME);
+  fs.mkdirSync(stateDir, { recursive: true });
+  fs.appendFileSync(logPath, JSON.stringify(event) + "\n");
 }
 
-/** Read the most recent N events from the log. Skips malformed lines. */
-export function readRecentEvents(
-  stateDir: string,
-  limit: number,
-): StoredEvent[] {
-  const logPath = resolveLogPath(stateDir);
-  if (!fs.existsSync(logPath)) return [];
-
-  let content: string;
-  try {
-    content = fs.readFileSync(logPath, "utf-8");
-  } catch {
-    return [];
-  }
-
-  const lines = content.trim().split("\n").filter(Boolean);
-  const recent = lines.slice(-limit);
-  const events: StoredEvent[] = [];
-
-  for (const line of recent) {
-    try {
-      const parsed = JSON.parse(line) as StoredEvent;
-      if (parsed && typeof parsed.type === "string" && typeof parsed.ts === "number") {
-        events.push(parsed);
-      }
-    } catch {
-      // Skip malformed lines silently
-    }
-  }
-
-  return events;
-}
-
-/** Read all events (for warm-start). Caps at 1000 most recent. */
 export function readAllEvents(stateDir: string): StoredEvent[] {
-  return readRecentEvents(stateDir, 1000);
+  const logPath = path.join(stateDir, LOG_FILENAME);
+  if (!fs.existsSync(logPath)) return [];
+  const lines = fs.readFileSync(logPath, "utf8").split("\n").filter(Boolean);
+  return lines.slice(-1000).map(l => {
+    try { return JSON.parse(l) as StoredEvent; } catch { return null; }
+  }).filter(Boolean) as StoredEvent[];
 }
 
-/** Prune the log by age and size. Atomic rewrite via .tmp + rename. */
-export function pruneLog(
-  stateDir: string,
-  opts?: { maxAgeMs?: number; maxSizeKb?: number },
-): void {
-  const logPath = resolveLogPath(stateDir);
+export function readRecentEvents(stateDir: string, limit = 50): StoredEvent[] {
+  const all = readAllEvents(stateDir);
+  return all.slice(-limit);
+}
+
+export function pruneLog(stateDir: string, opts: { maxAgeMs: number; maxSizeKb: number }): void {
+  const logPath = path.join(stateDir, LOG_FILENAME);
   if (!fs.existsSync(logPath)) return;
+  const stat = fs.statSync(logPath);
+  const cutoff = Date.now() - opts.maxAgeMs;
+  const oversized = stat.size > opts.maxSizeKb * 1024;
 
-  const maxAgeMs = opts?.maxAgeMs ?? DEFAULTS.maxLogAgeDays * 24 * 60 * 60 * 1000;
-  const maxSizeBytes = (opts?.maxSizeKb ?? DEFAULTS.maxLogSizeKb) * 1024;
-
-  let content: string;
-  try {
-    content = fs.readFileSync(logPath, "utf-8");
-  } catch {
-    return;
-  }
-
-  // Check size first — skip if well within limits
-  if (Buffer.byteLength(content, "utf-8") < maxSizeBytes * 0.8) {
-    // Only prune by age if size is okay
-    const cutoff = Date.now() - maxAgeMs;
-    const lines = content.trim().split("\n").filter(Boolean);
-    const filtered = lines.filter((line) => {
-      try {
-        const parsed = JSON.parse(line) as { ts?: number };
-        return typeof parsed.ts === "number" && parsed.ts >= cutoff;
-      } catch {
-        return false; // Drop malformed lines during prune
-      }
+  if (!oversized) {
+    const lines = fs.readFileSync(logPath, "utf8").split("\n").filter(Boolean);
+    const fresh = lines.filter(l => {
+      try { return (JSON.parse(l) as StoredEvent).ts >= cutoff; } catch { return false; }
     });
-
-    if (filtered.length < lines.length) {
-      writeAtomic(logPath, filtered.join("\n") + "\n");
-    }
+    if (fresh.length === lines.length) return;
+    const tmp = logPath + ".tmp";
+    fs.writeFileSync(tmp, fresh.join("\n") + "\n");
+    fs.renameSync(tmp, logPath);
     return;
   }
 
-  // Over size limit — filter by age first, then trim oldest if still too large
-  const cutoff = Date.now() - maxAgeMs;
-  let lines = content.trim().split("\n").filter(Boolean);
-
-  // Remove expired
-  lines = lines.filter((line) => {
-    try {
-      const parsed = JSON.parse(line) as { ts?: number };
-      return typeof parsed.ts === "number" && parsed.ts >= cutoff;
-    } catch {
-      return false;
-    }
-  });
-
-  // Still too large? Keep only the newest lines that fit
-  let result = lines.join("\n") + "\n";
-  while (Buffer.byteLength(result, "utf-8") > maxSizeBytes && lines.length > 10) {
-    lines = lines.slice(Math.floor(lines.length * 0.25)); // Drop oldest quarter
-    result = lines.join("\n") + "\n";
-  }
-
-  writeAtomic(logPath, result);
-}
-
-/** Atomic write: write to .tmp, then rename. Falls back to direct write on Windows. */
-function writeAtomic(filePath: string, content: string): void {
-  const tmpPath = filePath + ".tmp";
-  try {
-    fs.writeFileSync(tmpPath, content, "utf-8");
-    fs.renameSync(tmpPath, filePath);
-  } catch {
-    // Windows fallback: direct write (rename can be flaky)
-    fs.writeFileSync(filePath, content, "utf-8");
-    try {
-      fs.unlinkSync(tmpPath);
-    } catch {
-      // Ignore cleanup failure
-    }
+  // Oversized: keep last 500 lines
+  const lines = fs.readFileSync(logPath, "utf8").split("\n").filter(Boolean);
+  const keep = lines.slice(-500);
+  const tmp = logPath + ".tmp";
+  fs.writeFileSync(tmp, keep.join("\n") + "\n");
+  try { fs.renameSync(tmp, logPath); } catch {
+    // Windows rename fallback
+    fs.writeFileSync(logPath, keep.join("\n") + "\n");
+    try { fs.unlinkSync(tmp); } catch { /* ignore */ }
   }
 }

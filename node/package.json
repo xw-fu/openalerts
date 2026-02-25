@@ -1,62 +1,40 @@
 {
-  "name": "@steadwing/openalerts",
-  "version": "0.2.5",
+  "name": "openalerts",
+  "version": "0.1.0",
   "type": "module",
-  "description": "OpenAlerts — An alerting layer for agentic frameworks",
-  "author": "Steadwing",
+  "description": "Standalone monitoring daemon for OpenClaw — live dashboard, alerts via Telegram/webhook, REST API",
+  "author": "Nilay",
   "license": "Apache-2.0",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+  "keywords": ["openclaw", "monitoring", "alerts", "telegram", "dashboard", "ai-agent", "llm"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/steadwing/openalerts.git",
+    "directory": "node"
   },
-  "files": ["dist", "openclaw.plugin.json"],
+  "bin": {
+    "openalerts": "./bin/openalerts.js"
+  },
+  "main": "./dist/cli.js",
+  "files": [
+    "dist",
+    "bin",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
+    "dev": "node --experimental-sqlite --enable-source-maps dist/cli.js start",
+    "start": "node --experimental-sqlite dist/cli.js start",
     "typecheck": "tsc --noEmit",
-    "clean": "node -e \"const fs=require('fs');try{fs.rmSync('dist',{recursive:true,force:true})}catch{}\"",
-    "publish": "npm publish",
-    "prepublishOnly": "npm run build"
+    "clean": "node -e \"const fs=require('fs');try{fs.rmSync('dist',{recursive:true,force:true})}catch{}\""
   },
   "dependencies": {
-    "eventemitter3": "^5.0.1",
     "ws": "^8.18.0"
-  },
-  "peerDependencies": {
-    "openclaw": "*"
   },
   "devDependencies": {
     "@types/ws": "^8.5.13",
     "typescript": "^5.9.3"
   },
-  "openclaw": {
-    "extensions": ["./dist/index.js"]
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/steadwing/openalerts.git"
-  },
-  "homepage": "https://github.com/steadwing/openalerts#readme",
-  "bugs": "https://github.com/steadwing/openalerts/issues",
-  "keywords": [
-    "openclaw",
-    "openclaw-plugin",
-    "alerting",
-    "monitoring",
-    "observability",
-    "llm-monitoring",
-    "agent-monitoring",
-    "ai-agents",
-    "real-time-alerts",
-    "error-tracking"
-  ],
   "engines": {
-    "node": ">=18"
-  },
-  "overrides": {
-    "tar": "^7.5.8"
+    "node": ">=22.5.0"
   }
 }
