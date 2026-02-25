@@ -30,6 +30,7 @@ class LLMErrorsRule:
     id = "llm-errors"
     default_cooldown_seconds = 900
     default_threshold = 1
+    event_types = frozenset({EventType.LLM_ERROR})
 
     def evaluate(self, event: OpenAlertsEvent, ctx: RuleContext) -> AlertEvent | None:
         if event.type != EventType.LLM_ERROR:
@@ -53,6 +54,7 @@ class ToolErrorsRule:
     id = "tool-errors"
     default_cooldown_seconds = 900
     default_threshold = 1
+    event_types = frozenset({EventType.TOOL_ERROR})
 
     def evaluate(self, event: OpenAlertsEvent, ctx: RuleContext) -> AlertEvent | None:
         if event.type != EventType.TOOL_ERROR:
@@ -76,6 +78,7 @@ class AgentStuckRule:
     id = "agent-stuck"
     default_cooldown_seconds = 900
     default_threshold = 1
+    event_types = frozenset({EventType.AGENT_STUCK})
 
     def evaluate(self, event: OpenAlertsEvent, ctx: RuleContext) -> AlertEvent | None:
         if event.type != EventType.AGENT_STUCK:
@@ -94,6 +97,7 @@ class TokenLimitRule:
     id = "token-limit"
     default_cooldown_seconds = 900
     default_threshold = 1
+    event_types = frozenset({EventType.TOKEN_LIMIT})
 
     def evaluate(self, event: OpenAlertsEvent, ctx: RuleContext) -> AlertEvent | None:
         if event.type != EventType.TOKEN_LIMIT:
@@ -112,11 +116,12 @@ class StepLimitWarningRule:
     id = "step-limit-warning"
     default_cooldown_seconds = 900
     default_threshold = 80  # percentage
+    event_types = frozenset({EventType.AGENT_STEP})
 
     def evaluate(self, event: OpenAlertsEvent, ctx: RuleContext) -> AlertEvent | None:
         if event.type != EventType.AGENT_STEP:
             return None
-        if event.step_number is None or event.max_steps is None:
+        if event.step_number is None or not event.max_steps:
             return None
         threshold_pct = ctx.get_threshold(self.id, self.default_threshold)
         pct = (event.step_number / event.max_steps) * 100
@@ -139,6 +144,7 @@ class HighErrorRateRule:
     id = "high-error-rate"
     default_cooldown_seconds = 900
     default_threshold = 50  # percentage
+    event_types = frozenset({EventType.TOOL_CALL, EventType.TOOL_ERROR})
 
     def evaluate(self, event: OpenAlertsEvent, ctx: RuleContext) -> AlertEvent | None:
         if event.type not in (EventType.TOOL_CALL, EventType.TOOL_ERROR):

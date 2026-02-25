@@ -1,44 +1,161 @@
 <p align="center">
   <h1 align="center">OpenAlerts</h1>
   <p align="center">
-    An alerting layer for agentic frameworks.
+    Real-time monitoring & alerting for AI agent frameworks.
   </p>
 </p>
 
 <p align="center">
+  <a href="https://pypi.org/project/openalerts"><img src="https://img.shields.io/pypi/v/openalerts?style=flat&color=blue" alt="PyPI"></a>
+  <a href="https://pypi.org/project/openalerts"><img src="https://img.shields.io/pypi/dm/openalerts?style=flat&color=blue" alt="PyPI downloads"></a>
   <a href="https://www.npmjs.com/package/@steadwing/openalerts"><img src="https://img.shields.io/npm/v/@steadwing/openalerts?style=flat&color=blue" alt="npm"></a>
-  <a href="https://www.npmjs.com/package/@steadwing/openalerts"><img src="https://img.shields.io/npm/dt/@steadwing/openalerts?style=flat&color=blue" alt="npm"></a>
-  <a href="https://github.com/steadwing/openalerts/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="License"></a>
+  <a href="https://www.npmjs.com/package/@steadwing/openalerts"><img src="https://img.shields.io/npm/dt/@steadwing/openalerts?style=flat&color=blue" alt="npm downloads"></a>
   <a href="https://github.com/steadwing/openalerts/stargazers"><img src="https://img.shields.io/github/stars/steadwing/openalerts?style=flat" alt="GitHub stars"></a>
   <a href="https://discord.gg/4rUP86tSXn"><img src="https://img.shields.io/badge/discord-community-5865F2?style=flat" alt="Discord"></a>
 </p>
 
 <p align="center">
   <a href="#quickstart">Quickstart</a> &middot;
+  <a href="#dashboard">Dashboard</a> &middot;
   <a href="#alert-rules">Alert Rules</a> &middot;
   <a href="#llm-enriched-alerts">LLM Enrichment</a> &middot;
-  <a href="#dashboard">Dashboard</a> &middot;
   <a href="#commands">Commands</a>
 </p>
 
 ---
 
-AI agents fail silently. LLM errors, stuck sessions, gateway outages — nobody knows until a user complains.
+AI agents fail silently. LLM errors, stuck sessions, token blowups — nobody knows until a user complains.
 
-OpenAlerts watches your agent in real-time and alerts you the moment something goes wrong. Runs fully locally — no external services, no cloud dependencies, everything stays on your machine. A framework-agnostic core with adapter plugins — starting with [OpenClaw](https://github.com/openclaw/openclaw).
+OpenAlerts watches your agent in real-time and alerts you the moment something goes wrong. Runs fully locally — no external services, no cloud dependencies, everything stays on your machine.
+
+<p align="center">
+  <img src="assets/dashboard.png" alt="OpenAlerts Dashboard" width="800">
+</p>
 
 ## Quickstart
 
-> Currently supports OpenClaw. More framework adapters coming soon.
-> This project is under revamp for the next few hours
+<details open>
+<summary><b>Python</b> — for <a href="https://github.com/FoundationAgents/OpenManus">OpenManus</a></summary>
 
-### 1. Install
+### Install
+
+```bash
+pip install openalerts
+```
+
+### Usage
+
+```python
+import asyncio
+import openalerts
+from app.agent.manus import Manus
+
+async def main():
+    await openalerts.init({
+        "channels": [
+            {"type": "slack", "webhook_url": "https://hooks.slack.com/services/..."},
+        ]
+    })
+
+    # Use your agents as normal — they're automatically monitored
+    agent = Manus()
+    await agent.run("Research quantum computing")
+
+asyncio.run(main())
+```
+
+That's it. OpenAlerts monkey-patches OpenManus internals (`BaseAgent.run`, `ReActAgent.step`, `ToolCallAgent.execute_tool`, `LLM.ask_tool`, `LLM.ask`) so every event flows through the monitoring engine. Cleanup happens automatically on exit. All events are persisted to `~/.openalerts/` as JSONL.
+
+### Standalone Dashboard
+
+By default, the dashboard runs in-process — when your agent exits, the dashboard dies too. For a **persistent dashboard** that survives agent restarts:
+
+```bash
+# Terminal 1 — start persistent dashboard (stays running)
+openalerts serve
+
+# Terminal 2 — run your agent (writes events, no dashboard of its own)
+python my_agent.py
+```
+
+Disable the in-process dashboard when using standalone mode:
+
+```python
+await openalerts.init({
+    "dashboard": False,
+    "channels": [...]
+})
+```
+
+```
+openalerts serve [--port 9464] [--state-dir ~/.openalerts] [--log-level INFO]
+```
+
+Also works via `python -m openalerts serve`.
+
+### Channels
+
+```python
+# Slack
+{"type": "slack", "webhook_url": "https://hooks.slack.com/services/..."}
+
+# Discord
+{"type": "discord", "webhook_url": "https://discord.com/api/webhooks/..."}
+
+# Generic webhook
+{"type": "webhook", "webhook_url": "https://your-server.com/alerts", "headers": {"Authorization": "Bearer ..."}}
+```
+
+Or via environment variables (no code changes needed):
+
+```bash
+OPENALERTS_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+OPENALERTS_DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
+OPENALERTS_WEBHOOK_URL="https://your-server.com/alerts"
+```
+
+### Configuration
+
+```python
+await openalerts.init({
+    "channels": [...],
+    "rules": {
+        "llm-errors": {"threshold": 3},
+        "high-error-rate": {"enabled": False},
+        "tool-errors": {"cooldown_seconds": 1800},
+    },
+    "cooldown_seconds": 900,
+    "max_alerts_per_hour": 5,
+    "quiet": False,
+    "dashboard": True,
+    "dashboard_port": 9464,
+    "state_dir": "~/.openalerts",
+    "log_level": "INFO",
+})
+```
+
+### API
+
+```python
+engine = await openalerts.init({...})   # async init
+engine = openalerts.init_sync({...})    # sync init
+await openalerts.send_test_alert()      # verify channels
+engine = openalerts.get_engine()        # get engine instance
+await openalerts.shutdown()             # optional — runs automatically on exit
+```
+
+</details>
+
+<details>
+<summary><b>Node</b> — for <a href="https://github.com/openclaw/openclaw">OpenClaw</a></summary>
+
+### Install
 
 ```bash
 openclaw plugins install @steadwing/openalerts
 ```
 
-### 2. Configure
+### Configure
 
 If you already have a channel paired with OpenClaw (e.g. Telegram via `openclaw pair`), **no config is needed** — OpenAlerts auto-detects where to send alerts.
 
@@ -46,23 +163,23 @@ Otherwise, set it explicitly in `openclaw.json`:
 
 ```jsonc
 {
-	"plugins": {
-		"entries": {
-			"openalerts": {
-				"enabled": true,
-				"config": {
-					"alertChannel": "telegram", // telegram | discord | slack | whatsapp | signal
-					"alertTo": "YOUR_CHAT_ID",
-				},
-			},
-		},
-	},
+  "plugins": {
+    "entries": {
+      "openalerts": {
+        "enabled": true,
+        "config": {
+          "alertChannel": "telegram", // telegram | discord | slack | whatsapp | signal
+          "alertTo": "YOUR_CHAT_ID"
+        }
+      }
+    }
+  }
 }
 ```
 
 **Auto-detection priority:** explicit config > static `allowFrom` in channel config > pairing store.
 
-### 3. Restart & verify
+### Restart & verify
 
 ```bash
 openclaw gateway stop && openclaw gateway run
@@ -70,125 +187,76 @@ openclaw gateway stop && openclaw gateway run
 
 Send `/health` to your bot. You should get a live status report back — zero LLM tokens consumed.
 
-That's it. OpenAlerts is now watching your agent.
-
-## Demo
-
-https://github.com/user-attachments/assets/0b6ed26e-1eb0-47b2-ae4f-947516f024b4
+</details>
 
 ## Dashboard
 
-A real-time web dashboard is embedded in the gateway at:
-
-```
-http://127.0.0.1:18789/openalerts
-```
+A real-time web dashboard starts automatically and shows everything happening inside your agents:
 
 - **Activity** — Step-by-step execution timeline with tool calls, LLM usage, costs
-- **Sessions** — Active sessions with cost/token aggregation
-- **Execs** — Shell command executions with output capture
-- **System Logs** — Filtered, structured logs with search
 - **Health** — Rule status, alert history, system stats
 - **Debug** — State snapshot for troubleshooting
 
+Python: [http://localhost:9464/openalerts](http://localhost:9464/openalerts) | Node: `http://127.0.0.1:18789/openalerts`
+
 ## Alert Rules
 
-Ten rules run against every event in real-time. All thresholds and cooldowns are configurable.
+All rules run against every event in real-time. Thresholds and cooldowns are configurable.
 
-| Rule              | Watches for                           | Severity | Threshold (default) |
-| ----------------- | ------------------------------------- | -------- | ------------------- |
-| `llm-errors`      | LLM/agent failures in 1 min window    | ERROR    | `1` error           |
-| `infra-errors`    | Infrastructure errors in 1 min window | ERROR    | `1` error           |
-| `gateway-down`    | No heartbeat received                 | CRITICAL | `30000` ms (30s)    |
-| `session-stuck`   | Session idle too long                 | WARN     | `120000` ms (2 min) |
-| `high-error-rate` | Message failure rate over last 20     | ERROR    | `50`%               |
-| `queue-depth`     | Queued items piling up                | WARN     | `10` items          |
-| `tool-errors`     | Tool failures in 1 min window         | WARN     | `1` error           |
-| `heartbeat-fail`  | Consecutive heartbeat failures        | ERROR    | `3` failures        |
+| Rule | Watches for | Severity | Default threshold |
+|---|---|---|---|
+| `llm-errors` | LLM/agent failures in 1-min window | ERROR | `1` error |
+| `tool-errors` | Tool execution failures in 1-min window | WARN | `1` error |
+| `high-error-rate` | Failure rate over last 20 calls | ERROR | `50`% |
+| `agent-stuck` / `session-stuck` | Agent idle too long | WARN | `120000` ms |
+| `token-limit` | Token limit exceeded | ERROR | — |
+| `step-limit-warning` | Agent reaches 80% of max_steps | WARN | — |
+| `infra-errors` | Infrastructure errors (Node) | ERROR | `1` error |
+| `gateway-down` | No heartbeat received (Node) | CRITICAL | `30000` ms |
+| `queue-depth` | Queued items piling up (Node) | WARN | `10` items |
+| `heartbeat-fail` | Consecutive heartbeat failures (Node) | ERROR | `3` failures |
 
 Every rule also accepts:
 
-- **`enabled`** — `false` to disable the rule (default: `true`)
-- **`cooldownMinutes`** — minutes before the same rule can fire again (default: `15`)
-
-To tune rules, add a `rules` object in your plugin config:
-
-```jsonc
-{
-	"plugins": {
-		"entries": {
-			"openalerts": {
-				"config": {
-					"cooldownMinutes": 10,
-					"rules": {
-						"llm-errors": { "threshold": 5 },
-						"infra-errors": { "cooldownMinutes": 30 },
-						"high-error-rate": { "enabled": false },
-						"gateway-down": { "threshold": 60000 },
-					},
-				},
-			},
-		},
-	},
-}
-```
-
-Set `"quiet": true` at the config level for log-only mode (no messages sent).
+- **`enabled`** — `false` to disable (default: `true`)
+- **`cooldown`** — time before the same rule can fire again (default: 15 min)
 
 ## LLM-Enriched Alerts
 
-OpenAlerts can optionally use your configured LLM to enrich alerts with a human-friendly summary and an actionable suggestion. **This feature is disabled by default** — opt in by setting `"llmEnriched": true` in your plugin config:
-
-```jsonc
-{
-	"plugins": {
-		"entries": {
-			"openalerts": {
-				"config": {
-					"llmEnriched": true,
-				},
-			},
-		},
-	},
-}
-```
-
-When enabled, alerts include an LLM-generated summary and action:
+OpenAlerts can optionally use your configured LLM to enrich alerts with a human-friendly summary and an actionable suggestion. **Disabled by default** — opt in with `"llmEnriched": true` (Node plugin).
 
 ```
 1 agent error(s) on unknown in the last minute. Last: 401 Incorrect API key...
 
 Summary: Your OpenAI API key is invalid or expired — the agent cannot make LLM calls.
-Action: Update your API key in ~/.openclaw/.env with a valid key from platform.openai.com/api-keys
+Action: Update your API key with a valid key from platform.openai.com/api-keys
 ```
-
-- **Model**: reads from `agents.defaults.model.primary` in your `openclaw.json` (e.g. `"openai/gpt-4o-mini"`)
-- **API key**: reads from the corresponding environment variable (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, etc.)
-- **Supported providers**: OpenAI, Anthropic, Groq, Together, DeepSeek (and any OpenAI-compatible API)
-- **Graceful fallback**: if the LLM call fails or times out (10s), the original alert is sent unchanged
 
 ## Commands
 
-Zero-token chat commands available in any connected channel:
+Zero-token chat commands available in any connected channel (Node plugin):
 
-| Command      | What it does                                          |
-| ------------ | ----------------------------------------------------- |
-| `/health`    | System health snapshot — uptime, active alerts, stats |
-| `/alerts`    | Recent alert history with severity and timestamps     |
-| `/dashboard` | Returns the dashboard URL                             |
+| Command | What it does |
+|---|---|
+| `/health` | System health snapshot — uptime, active alerts, stats |
+| `/alerts` | Recent alert history with severity and timestamps |
+| `/dashboard` | Returns the dashboard URL |
 
 ## Roadmap
 
+- [x] [OpenClaw](https://github.com/openclaw/openclaw) adapter (Node)
+- [x] [OpenManus](https://github.com/FoundationAgents/OpenManus) adapter (Python)
 - [ ] [nanobot](https://github.com/HKUDS/nanobot) adapter
-- [ ] [OpenManus](https://github.com/FoundationAgents/OpenManus) adapter
 
 ## Development
 
 ```bash
-npm install        # install dependencies
-npm run build      # compile TypeScript
-npm run typecheck  # type-check without emitting
-npm run clean      # remove dist/
+# Node plugin
+npm install && npm run build
+
+# Python package
+cd python && pip install -e ".[dev]"
+pytest
 ```
 
 ## License
@@ -197,4 +265,4 @@ Apache-2.0
 
 ---
 
-<p align="center">Made with ❤️ by Steadwing Team</p>
+<p align="center">Made by <a href="https://github.com/steadwing">Steadwing</a></p>
