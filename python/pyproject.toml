@@ -35,6 +35,7 @@ packages = [
     "openalerts",
     "openalerts.adapters",
     "openalerts.channels",
+    "openalerts.collections",
     "openalerts.core",
     "openalerts.dashboard",
 ]
