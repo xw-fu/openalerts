@@ -6,9 +6,10 @@
 </p>
 
 <p align="center">
+  <a href="https://pypi.org/project/openalerts"><img src="https://img.shields.io/pypi/v/openalerts?style=flat&color=blue" alt="PyPI"></a>
+  <a href="https://pypi.org/project/openalerts"><img src="https://img.shields.io/pypi/dm/openalerts?style=flat&color=blue" alt="PyPI downloads"></a>
   <a href="https://www.npmjs.com/package/@steadwing/openalerts"><img src="https://img.shields.io/npm/v/@steadwing/openalerts?style=flat&color=blue" alt="npm"></a>
   <a href="https://www.npmjs.com/package/@steadwing/openalerts"><img src="https://img.shields.io/npm/dt/@steadwing/openalerts?style=flat&color=blue" alt="npm downloads"></a>
-  <a href="https://github.com/steadwing/openalerts/stargazers"><img src="https://img.shields.io/github/stars/steadwing/openalerts?style=flat" alt="GitHub stars"></a>
   <a href="https://discord.gg/4rUP86tSXn"><img src="https://img.shields.io/badge/discord-community-5865F2?style=flat" alt="Discord"></a>
 </p>
 
