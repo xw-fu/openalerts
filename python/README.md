@@ -22,7 +22,7 @@ from app.agent.manus import Manus
 
 async def main():
     # Dashboard starts at http://localhost:9464/openalerts
-    await openalerts.init({})
+    await openalerts.init({"framework": "openmanus"})
 
     # Use your agents as normal — they're automatically monitored
     agent = Manus()
