@@ -287,23 +287,6 @@ Zero-token chat commands available in any connected channel (Node plugin):
 | `/alerts` | Recent alert history with severity and timestamps |
 | `/dashboard` | Returns the dashboard URL |
 
-## Roadmap
-
-- [x] [OpenClaw](https://github.com/openclaw/openclaw) adapter (Node)
-- [x] [OpenManus](https://github.com/FoundationAgents/OpenManus) adapter (Python)
-- [x] [nanobot](https://github.com/HKUDS/nanobot) adapter (Python)
-
-## Development
-
-```bash
-# Node plugin
-npm install && npm run build
-
-# Python package
-cd python && pip install -e ".[dev]"
-pytest
-```
-
 ---
 
 <p align="center">Made with ❤️ by Steadwing Team</p>
