@@ -21,6 +21,10 @@ class EventType(StrEnum):
     AGENT_ERROR = "agent.error"
     AGENT_STUCK = "agent.stuck"
     AGENT_STEP = "agent.step"
+    # Subagent events
+    SUBAGENT_SPAWN = "subagent.spawn"
+    SUBAGENT_END = "subagent.end"
+    SUBAGENT_ERROR = "subagent.error"
     # Token/cost events
     TOKEN_LIMIT = "token.limit_exceeded"
     STEP_LIMIT = "step.limit_warning"
@@ -40,6 +44,7 @@ class OpenAlertsEvent(BaseModel):
     ts: float = Field(default_factory=time.time)
     severity: Severity = Severity.INFO
     session_id: str | None = None
+    parent_session_id: str | None = None
     agent_name: str | None = None
     agent_class: str | None = None
     tool_name: str | None = None

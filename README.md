@@ -35,7 +35,7 @@ OpenAlerts watches your agent in real-time and alerts you the moment something g
 ## Quickstart
 
 <details open>
-<summary><b>Python</b> - for <a href="https://github.com/FoundationAgents/OpenManus">OpenManus</a></summary>
+<summary><b>Python</b> - for <a href="https://github.com/FoundationAgents/OpenManus">OpenManus</a> and <a href="https://github.com/HKUDS/nanobot">nanobot</a></summary>
 
 ### Install
 
@@ -43,7 +43,8 @@ OpenAlerts watches your agent in real-time and alerts you the moment something g
 pip install openalerts
 ```
 
-### Usage
+<details open>
+<summary><b>OpenManus</b></summary>
 
 ```python
 import asyncio
@@ -61,7 +62,38 @@ async def main():
 asyncio.run(main())
 ```
 
-That's it. A real-time dashboard starts at [http://localhost:9464/openalerts](http://localhost:9464/openalerts). OpenAlerts monkey-patches OpenManus internals (`BaseAgent.run`, `ReActAgent.step`, `ToolCallAgent.execute_tool`, `LLM.ask_tool`, `LLM.ask`) so every event flows through the monitoring engine. Cleanup happens automatically on exit. All events are persisted to `~/.openalerts/` as JSONL.
+</details>
+
+<details>
+<summary><b>nanobot</b></summary>
+
+```python
+import asyncio
+import openalerts
+from nanobot.agent.loop import AgentLoop
+from nanobot.bus.queue import MessageBus
+from nanobot.providers.litellm_provider import LiteLLMProvider
+
+async def main():
+    await openalerts.init({"framework": "nanobot"})
+
+    provider = LiteLLMProvider(api_key="sk-...", default_model="gpt-4o-mini")
+    agent = AgentLoop(
+        bus=MessageBus(),
+        provider=provider,
+        workspace="./workspace",
+    )
+    response = await agent.process_direct("Research quantum computing")
+    print(response)
+
+asyncio.run(main())
+```
+
+The nanobot adapter also tracks **subagent lifecycle** — `subagent.spawn`, `subagent.end`, and `subagent.error` events are captured automatically when `SubagentManager` is used, with parent/child session correlation.
+
+</details>
+
+That's it. A real-time dashboard starts at [http://localhost:9464/openalerts](http://localhost:9464/openalerts). OpenAlerts auto-instruments the configured framework so every event flows through the monitoring engine. Cleanup happens automatically on exit. All events are persisted to `~/.openalerts/` as JSONL.
 
 Optionally, add [channels](#channels) (Slack, Discord, webhooks) to get alerts delivered when things go wrong.
 
@@ -223,6 +255,7 @@ All rules run against every event in real-time. Thresholds and cooldowns are con
 | `agent-stuck` / `session-stuck` | Agent idle too long | WARN | `120000` ms |
 | `token-limit` | Token limit exceeded | ERROR | - |
 | `step-limit-warning` | Agent reaches 80% of max_steps | WARN | - |
+| `subagent-errors` | Subagent failures in 1-min window (Python) | WARN | `1` error |
 | `infra-errors` | Infrastructure errors (Node) | ERROR | `1` error |
 | `gateway-down` | No heartbeat received (Node) | CRITICAL | `30000` ms |
 | `queue-depth` | Queued items piling up (Node) | WARN | `10` items |
@@ -258,7 +291,7 @@ Zero-token chat commands available in any connected channel (Node plugin):
 
 - [x] [OpenClaw](https://github.com/openclaw/openclaw) adapter (Node)
 - [x] [OpenManus](https://github.com/FoundationAgents/OpenManus) adapter (Python)
-- [ ] [nanobot](https://github.com/HKUDS/nanobot) adapter
+- [x] [nanobot](https://github.com/HKUDS/nanobot) adapter (Python)
 
 ## Development
 

@@ -1,41 +1,22 @@
 from __future__ import annotations
 
-import asyncio
-import contextvars
 import logging
 import time
-import uuid
 from typing import Any
 
+from openalerts.adapters.base import (
+    BaseAdapter,
+    _current_agent_class,
+    _current_agent_name,
+    _current_session_id,
+)
 from openalerts.core.engine import OpenAlertsEngine
 from openalerts.core.types import EventType, OpenAlertsEvent, Severity
 
 logger = logging.getLogger("openalerts.adapters.openmanus")
 
-# Context variables for session tracking within an agent.run() invocation
-_current_session_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
-    "_current_session_id", default=None
-)
-_seq_counter: contextvars.ContextVar[int] = contextvars.ContextVar(
-    "_seq_counter", default=0
-)
-# Agent identity context — set in BaseAgent.run(), read in LLM patches
-_current_agent_name: contextvars.ContextVar[str | None] = contextvars.ContextVar(
-    "_current_agent_name", default=None
-)
-_current_agent_class: contextvars.ContextVar[str | None] = contextvars.ContextVar(
-    "_current_agent_class", default=None
-)
 
-
-def _next_seq() -> int:
-    """Increment and return the next sequence number for the current session."""
-    val = _seq_counter.get(0) + 1
-    _seq_counter.set(val)
-    return val
-
-
-class OpenManusAdapter:
+class OpenManusAdapter(BaseAdapter):
     """Monkey-patching adapter for OpenManus agent framework.
 
     Patches the OpenManus class hierarchy to emit monitoring events:
@@ -54,10 +35,6 @@ class OpenManusAdapter:
     contextvars, allowing all nested events (steps, tool calls, LLM calls) to
     be correlated to the same session.
     """
-
-    def __init__(self) -> None:
-        self._originals: dict[str, Any] = {}
-        self._engine: OpenAlertsEngine | None = None
 
     @property
     def name(self) -> str:
@@ -94,14 +71,10 @@ class OpenManusAdapter:
         async def patched_run(self_agent: Any, request: str | None = None) -> str:
             agent_name = getattr(self_agent, "name", None)
             agent_class = type(self_agent).__name__
-            session_id = str(uuid.uuid4())
+            session_id = self._new_session()
             start = time.time()
 
-            # Set session + agent context for all nested calls
-            sid_token = _current_session_id.set(session_id)
-            seq_token = _seq_counter.set(0)
-            name_token = _current_agent_name.set(agent_name)
-            class_token = _current_agent_class.set(agent_class)
+            tokens = self._set_session_context(session_id, agent_name, agent_class)
 
             try:
                 await engine.ingest(OpenAlertsEvent(
@@ -109,7 +82,7 @@ class OpenManusAdapter:
                     session_id=session_id,
                     agent_name=agent_name,
                     agent_class=agent_class,
-                    meta={"seq": _next_seq()},
+                    meta={"seq": self._next_seq()},
                 ))
                 try:
                     result = await original_run(self_agent, request)
@@ -121,7 +94,7 @@ class OpenManusAdapter:
                         agent_class=agent_class,
                         duration_ms=duration_ms,
                         outcome="success",
-                        meta={"seq": _next_seq()},
+                        meta={"seq": self._next_seq()},
                     ))
                     return result
                 except Exception as e:
@@ -134,30 +107,25 @@ class OpenManusAdapter:
                         duration_ms=duration_ms,
                         error=str(e),
                         severity=Severity.ERROR,
-                        meta={"seq": _next_seq()},
+                        meta={"seq": self._next_seq()},
                     ))
                     raise
             finally:
-                _current_session_id.reset(sid_token)
-                _seq_counter.reset(seq_token)
-                _current_agent_name.reset(name_token)
-                _current_agent_class.reset(class_token)
+                self._reset_session_context(tokens)
 
         cls.run = patched_run
 
     # ------------------------------------------------------------------
-    # ReActAgent.step() -> agent.step  (concrete implementation lives here,
-    # BaseAgent.step() is abstract)
+    # ReActAgent.step() -> agent.step
     # ------------------------------------------------------------------
     def _patch_react_agent_step(self, cls: type, engine: OpenAlertsEngine) -> None:
         original_step = cls.step
         self._originals["ReActAgent.step"] = original_step
 
         async def patched_step(self_agent: Any) -> str:
-            # current_step is already incremented by BaseAgent.run() before calling step()
             step_num = getattr(self_agent, "current_step", None)
             max_steps = getattr(self_agent, "max_steps", None)
-            session_id = _current_session_id.get(None)
+            session_id = self._get_session_id()
             start = time.time()
 
             result = await original_step(self_agent)
@@ -171,14 +139,14 @@ class OpenManusAdapter:
                 step_number=step_num,
                 max_steps=max_steps,
                 duration_ms=duration_ms,
-                meta={"seq": _next_seq()} if session_id else None,
+                meta={"seq": self._next_seq()} if session_id else None,
             ))
             return result
 
         cls.step = patched_step
 
     # ------------------------------------------------------------------
-    # BaseAgent.is_stuck() -> agent.stuck  (sync method, fire-and-forget)
+    # BaseAgent.is_stuck() -> agent.stuck (sync method, fire-and-forget)
     # ------------------------------------------------------------------
     def _patch_is_stuck(self, cls: type, engine: OpenAlertsEngine) -> None:
         if not hasattr(cls, "is_stuck"):
@@ -190,29 +158,21 @@ class OpenManusAdapter:
         def patched_is_stuck(self_agent: Any) -> bool:
             result = original_is_stuck(self_agent)
             if result:
-                session_id = _current_session_id.get(None)
-                try:
-                    loop = asyncio.get_running_loop()
-                    loop.create_task(engine.ingest(OpenAlertsEvent(
-                        type=EventType.AGENT_STUCK,
-                        session_id=session_id,
-                        agent_name=getattr(self_agent, "name", None),
-                        agent_class=type(self_agent).__name__,
-                        severity=Severity.WARN,
-                        meta={"seq": _next_seq()} if session_id else None,
-                    )))
-                except RuntimeError:
-                    pass
+                session_id = self._get_session_id()
+                self._emit_fire_and_forget(OpenAlertsEvent(
+                    type=EventType.AGENT_STUCK,
+                    session_id=session_id,
+                    agent_name=getattr(self_agent, "name", None),
+                    agent_class=type(self_agent).__name__,
+                    severity=Severity.WARN,
+                    meta={"seq": self._next_seq()} if session_id else None,
+                ))
             return result
 
         cls.is_stuck = patched_is_stuck
 
     # ------------------------------------------------------------------
     # ToolCallAgent.execute_tool() -> tool.call / tool.error
-    #
-    # CRITICAL: OpenManus's execute_tool catches ALL exceptions internally
-    # and returns error strings like "Error: Tool 'x' encountered a problem: ..."
-    # We detect errors by checking the return value, not via try/except.
     # ------------------------------------------------------------------
     def _patch_execute_tool(self, cls: type, engine: OpenAlertsEngine) -> None:
         if not hasattr(cls, "execute_tool"):
@@ -222,19 +182,17 @@ class OpenManusAdapter:
         self._originals["ToolCallAgent.execute_tool"] = original_execute
 
         async def patched_execute_tool(self_agent: Any, command: Any) -> str:
-            # Extract tool name from ToolCall.function.name
             tool_name = None
             if command and hasattr(command, "function"):
                 tool_name = getattr(command.function, "name", None)
 
             agent_name = getattr(self_agent, "name", None)
-            session_id = _current_session_id.get(None)
+            session_id = self._get_session_id()
             start = time.time()
 
             result = await original_execute(self_agent, command)
             duration_ms = (time.time() - start) * 1000
 
-            # OpenManus returns "Error: ..." strings on failure instead of raising
             is_error = isinstance(result, str) and result.startswith("Error:")
 
             if is_error:
@@ -246,7 +204,7 @@ class OpenManusAdapter:
                     duration_ms=duration_ms,
                     error=result,
                     severity=Severity.WARN,
-                    meta={"seq": _next_seq()} if session_id else None,
+                    meta={"seq": self._next_seq()} if session_id else None,
                 ))
             else:
                 await engine.ingest(OpenAlertsEvent(
@@ -256,7 +214,7 @@ class OpenManusAdapter:
                     tool_name=tool_name,
                     duration_ms=duration_ms,
                     outcome="success",
-                    meta={"seq": _next_seq()} if session_id else None,
+                    meta={"seq": self._next_seq()} if session_id else None,
                 ))
 
             return result
@@ -265,15 +223,6 @@ class OpenManusAdapter:
 
     # ------------------------------------------------------------------
     # LLM.ask_tool() / LLM.ask() -> llm.call / llm.error / llm.token_usage
-    #
-    # Token tracking: OpenManus's LLM class accumulates total_input_tokens
-    # and total_completion_tokens internally. We snapshot before/after to
-    # get the delta for each call. This works correctly even with retries
-    # (the delta includes all retry attempts' tokens).
-    #
-    # TokenLimitExceeded: OpenManus raises this when token limits are hit.
-    # After tenacity exhausts retries, a RetryError propagates up. We
-    # detect this and emit a token.limit_exceeded event.
     # ------------------------------------------------------------------
     def _patch_llm(self, cls: type, engine: OpenAlertsEngine) -> None:
         for method_name in ("ask_tool", "ask"):
@@ -289,7 +238,6 @@ class OpenManusAdapter:
                 _original: Any = original,
                 **kwargs: Any,
             ) -> Any:
-                # Snapshot token counters before call
                 input_before = getattr(self_llm, "total_input_tokens", 0)
                 completion_before = getattr(self_llm, "total_completion_tokens", 0)
                 session_id = _current_session_id.get(None)
@@ -301,7 +249,6 @@ class OpenManusAdapter:
                     result = await _original(self_llm, *args, **kwargs)
                     duration_ms = (time.time() - start) * 1000
 
-                    # Calculate token delta
                     input_delta = getattr(self_llm, "total_input_tokens", 0) - input_before
                     completion_delta = getattr(self_llm, "total_completion_tokens", 0) - completion_before
                     token_count = input_delta + completion_delta
@@ -314,10 +261,9 @@ class OpenManusAdapter:
                         duration_ms=duration_ms,
                         token_count=token_count if token_count > 0 else None,
                         outcome="success",
-                        meta={"seq": _next_seq()} if session_id else None,
+                        meta={"seq": self._next_seq()} if session_id else None,
                     ))
 
-                    # Emit separate token_usage event if tokens were consumed
                     if token_count > 0:
                         await engine.ingest(OpenAlertsEvent(
                             type=EventType.LLM_TOKEN_USAGE,
@@ -329,7 +275,7 @@ class OpenManusAdapter:
                                 "input_tokens": input_delta,
                                 "completion_tokens": completion_delta,
                                 "model": getattr(self_llm, "model", None),
-                                **({"seq": _next_seq()} if session_id else {}),
+                                **({"seq": self._next_seq()} if session_id else {}),
                             },
                         ))
 
@@ -337,8 +283,6 @@ class OpenManusAdapter:
                 except Exception as e:
                     duration_ms = (time.time() - start) * 1000
 
-                    # Detect TokenLimitExceeded (raised by OpenManus when token limits hit)
-                    # After tenacity retries, it arrives as RetryError.__cause__
                     cause = getattr(e, "__cause__", e)
                     is_token_limit = type(cause).__name__ == "TokenLimitExceeded"
 
@@ -351,7 +295,7 @@ class OpenManusAdapter:
                             duration_ms=duration_ms,
                             error=str(cause),
                             severity=Severity.ERROR,
-                            meta={"seq": _next_seq()} if session_id else None,
+                            meta={"seq": self._next_seq()} if session_id else None,
                         ))
 
                     await engine.ingest(OpenAlertsEvent(
@@ -362,7 +306,7 @@ class OpenManusAdapter:
                         duration_ms=duration_ms,
                         error=str(e),
                         severity=Severity.ERROR,
-                        meta={"seq": _next_seq()} if session_id else None,
+                        meta={"seq": self._next_seq()} if session_id else None,
                     ))
                     raise
 

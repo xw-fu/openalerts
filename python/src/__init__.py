@@ -187,11 +187,24 @@ def _create_channel(config: ChannelConfig) -> Any:
         return None
 
 
-def _load_adapter(framework: str) -> Any:
-    """Load the framework adapter."""
-    if framework == "openmanus":
-        from openalerts.adapters.openmanus import OpenManusAdapter
+_ADAPTER_REGISTRY: dict[str, tuple[str, str]] = {
+    "openmanus": ("openalerts.adapters.openmanus", "OpenManusAdapter"),
+    "nanobot": ("openalerts.adapters.nanobot", "NanobotAdapter"),
+}
 
-        return OpenManusAdapter()
-    else:
-        raise ValueError(f"Unknown framework adapter: {framework}")
+
+def _load_adapter(framework: str) -> Any:
+    """Load a framework adapter by name from the registry."""
+    import importlib
+
+    entry = _ADAPTER_REGISTRY.get(framework)
+    if entry is None:
+        supported = ", ".join(sorted(_ADAPTER_REGISTRY))
+        raise ValueError(
+            f"Unknown framework adapter: {framework!r}. Supported: {supported}"
+        )
+
+    module_path, class_name = entry
+    mod = importlib.import_module(module_path)
+    cls = getattr(mod, class_name)
+    return cls()
