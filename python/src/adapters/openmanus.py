@@ -225,6 +225,8 @@ class OpenManusAdapter(BaseAdapter):
     # LLM.ask_tool() / LLM.ask() -> llm.call / llm.error / llm.token_usage
     # ------------------------------------------------------------------
     def _patch_llm(self, cls: type, engine: OpenAlertsEngine) -> None:
+        adapter = self
+
         for method_name in ("ask_tool", "ask"):
             if not hasattr(cls, method_name):
                 continue
@@ -238,20 +240,33 @@ class OpenManusAdapter(BaseAdapter):
                 _original: Any = original,
                 **kwargs: Any,
             ) -> Any:
-                input_before = getattr(self_llm, "total_input_tokens", 0)
-                completion_before = getattr(self_llm, "total_completion_tokens", 0)
                 session_id = _current_session_id.get(None)
                 agent_name = _current_agent_name.get(None)
                 agent_class = _current_agent_class.get(None)
                 start = time.time()
 
+                # Wrap the OpenAI client's create() to capture response.usage
+                # before it's discarded by ask()/ask_tool()
+                captured_usage: dict = {}
+                completions = self_llm.client.chat.completions
+                real_create = completions.create
+
+                async def _create_with_usage(*a: Any, **kw: Any) -> Any:
+                    response = await real_create(*a, **kw)
+                    if not kw.get("stream", False) and hasattr(response, "usage") and response.usage:
+                        captured_usage["input"] = response.usage.prompt_tokens or 0
+                        captured_usage["output"] = response.usage.completion_tokens or 0
+                    return response
+
+                completions.create = _create_with_usage
+
                 try:
                     result = await _original(self_llm, *args, **kwargs)
                     duration_ms = (time.time() - start) * 1000
 
-                    input_delta = getattr(self_llm, "total_input_tokens", 0) - input_before
-                    completion_delta = getattr(self_llm, "total_completion_tokens", 0) - completion_before
-                    token_count = input_delta + completion_delta
+                    input_tokens = captured_usage.get("input", 0)
+                    output_tokens = captured_usage.get("output", 0)
+                    token_count = input_tokens + output_tokens
 
                     await engine.ingest(OpenAlertsEvent(
                         type=EventType.LLM_CALL,
@@ -261,7 +276,7 @@ class OpenManusAdapter(BaseAdapter):
                         duration_ms=duration_ms,
                         token_count=token_count if token_count > 0 else None,
                         outcome="success",
-                        meta={"seq": self._next_seq()} if session_id else None,
+                        meta={"seq": adapter._next_seq()} if session_id else None,
                     ))
 
                     if token_count > 0:
@@ -272,10 +287,10 @@ class OpenManusAdapter(BaseAdapter):
                             agent_class=agent_class,
                             token_count=token_count,
                             meta={
-                                "input_tokens": input_delta,
-                                "completion_tokens": completion_delta,
+                                "input_tokens": input_tokens,
+                                "completion_tokens": output_tokens,
                                 "model": getattr(self_llm, "model", None),
-                                **({"seq": self._next_seq()} if session_id else {}),
+                                **({"seq": adapter._next_seq()} if session_id else {}),
                             },
                         ))
 
@@ -295,7 +310,7 @@ class OpenManusAdapter(BaseAdapter):
                             duration_ms=duration_ms,
                             error=str(cause),
                             severity=Severity.ERROR,
-                            meta={"seq": self._next_seq()} if session_id else None,
+                            meta={"seq": adapter._next_seq()} if session_id else None,
                         ))
 
                     await engine.ingest(OpenAlertsEvent(
@@ -306,9 +321,11 @@ class OpenManusAdapter(BaseAdapter):
                         duration_ms=duration_ms,
                         error=str(e),
                         severity=Severity.ERROR,
-                        meta={"seq": self._next_seq()} if session_id else None,
+                        meta={"seq": adapter._next_seq()} if session_id else None,
                     ))
                     raise
+                finally:
+                    completions.create = real_create
 
             setattr(cls, method_name, patched_llm_method)
 

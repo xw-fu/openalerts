@@ -125,11 +125,17 @@ export function upsertSession(db: DatabaseSync, row: SessionRow): void {
     INSERT INTO sessions (session_key, agent_id, platform, recipient, is_group, last_activity_at, status, message_count, total_cost_usd, total_input_tokens, total_output_tokens, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(session_key) DO UPDATE SET
-      agent_id=excluded.agent_id, platform=excluded.platform, recipient=excluded.recipient,
-      is_group=excluded.is_group, last_activity_at=excluded.last_activity_at,
-      status=excluded.status, message_count=excluded.message_count,
-      total_cost_usd=excluded.total_cost_usd, total_input_tokens=excluded.total_input_tokens,
-      total_output_tokens=excluded.total_output_tokens, updated_at=excluded.updated_at
+      agent_id=COALESCE(excluded.agent_id, sessions.agent_id),
+      platform=COALESCE(excluded.platform, sessions.platform),
+      recipient=COALESCE(excluded.recipient, sessions.recipient),
+      is_group=excluded.is_group,
+      last_activity_at=excluded.last_activity_at,
+      status=excluded.status,
+      message_count=sessions.message_count + excluded.message_count,
+      total_cost_usd=sessions.total_cost_usd + excluded.total_cost_usd,
+      total_input_tokens=sessions.total_input_tokens + excluded.total_input_tokens,
+      total_output_tokens=sessions.total_output_tokens + excluded.total_output_tokens,
+      updated_at=excluded.updated_at
   `).run(
     row.session_key, row.agent_id ?? null, row.platform ?? null, row.recipient ?? null,
     row.is_group ?? 0, row.last_activity_at ?? null, row.status ?? null,

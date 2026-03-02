@@ -31,7 +31,7 @@ body{font-family:'SF Mono','Cascadia Code','Consolas',monospace;background:#0d11
 @media(max-width:900px){.activity-panels{grid-template-columns:1fr}}
 .panel{display:flex;flex-direction:column;overflow:hidden}
 .panel-header{background:#161b22;padding:6px 12px;font-size:12px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:0.8px;border-bottom:1px solid #30363d;flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
-.panel:first-child{border-right:1px solid #30363d}
+.panel:first-child{border-right:none}
 .scroll{flex:1;overflow-y:auto}
 .scroll::-webkit-scrollbar{width:5px}
 .scroll::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
@@ -112,17 +112,47 @@ body{font-family:'SF Mono','Cascadia Code','Consolas',monospace;background:#0d11
 .h-tbl td{padding:4px 8px;font-size:13px;border-bottom:1px solid #161b22}
 .h-tbl td:first-child{color:#8b949e;width:140px}
 .h-tbl th{padding:4px 8px;font-size:12px;color:#8b949e;text-align:left;border-bottom:1px solid #30363d;font-weight:600}
-.sess-panels{display:grid;grid-template-columns:300px 1fr;gap:0;overflow:hidden;flex:1}
+.sess-panels{display:grid;grid-template-columns:280px 1fr;gap:0;overflow:hidden;flex:1;min-height:0;height:100%}
 @media(max-width:900px){.sess-panels{grid-template-columns:1fr}}
-.sess-card{padding:8px 12px;border-bottom:1px solid #21262d;cursor:pointer;transition:background 0.1s;animation:fi 0.15s ease}
+.sess-card{padding:8px 12px;border-bottom:1px solid #21262d;cursor:pointer;transition:background 0.1s;animation:fi 0.15s ease;border-left:3px solid transparent}
 .sess-card:hover{background:#1c2129}
-.sess-card.selected{background:#1c2129;border-left:3px solid #58a6ff}
-.sess-card-hdr{display:flex;align-items:center;gap:6px;margin-bottom:4px}
-.sess-card-name{font-weight:600;font-size:12px;color:#c9d1d9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
-.sess-card-meta{font-size:10px;color:#8b949e;display:flex;flex-wrap:wrap;gap:4px 10px}
+.sess-card.selected{background:#1c2129;border-left-color:#58a6ff}
+.sess-card-hdr{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.sess-card-name{font-weight:600;font-size:12px;color:#c9d1d9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
+.sess-card-meta{font-size:10px;color:#8b949e;display:flex;flex-wrap:wrap;gap:3px 8px}
 .sess-card-meta b{color:#c9d1d9;font-weight:500}
 .sess-actions-hdr{display:flex;align-items:center;gap:8px}
 .sess-actions-hdr .cnt{color:#484f58;font-weight:400}
+.sess-summary{background:#161b22;border-bottom:1px solid #30363d;padding:10px 14px;flex-shrink:0}
+.sess-summary-name{font-weight:600;font-size:13px;color:#f0f6fc;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.sess-summary-grid{display:flex;flex-wrap:wrap;gap:6px}
+.sess-summary-pill{background:#21262d;border:1px solid #30363d;border-radius:4px;padding:3px 8px;font-size:11px;color:#c9d1d9}
+.sess-summary-pill .sl{color:#8b949e;margin-right:3px}
+.sess-summary-pill.err{border-color:#3d1a1a;color:#f85149}
+.act-row{padding:6px 14px;border-bottom:1px solid #21262d;cursor:pointer;transition:background 0.1s}
+.act-row:hover{background:#161b22}
+.act-row .ar-main{display:flex;align-items:center;gap:6px;font-size:12px}
+.act-row .ar-time{color:#484f58;font-size:11px;min-width:60px;flex-shrink:0}
+.act-row .ar-icon{width:16px;text-align:center;flex-shrink:0}
+.act-row .ar-label{font-weight:600;font-size:11px;min-width:100px;flex-shrink:0}
+.act-row .ar-label.llm{color:#58a6ff} .act-row .ar-label.tool{color:#bc8cff} .act-row .ar-label.agent{color:#3fb950}
+.act-row .ar-label.token{color:#d29922} .act-row .ar-label.custom{color:#8b949e}
+.act-row .ar-pills{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto;align-items:center}
+.act-row .ar-oc{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;flex-shrink:0}
+.act-row .ar-oc.ok{background:#1a3a2a;color:#3fb950}
+.act-row .ar-oc.err{background:#3d1a1a;color:#f85149}
+.act-detail{background:#0d1117;border:1px solid #21262d;border-radius:4px;margin:4px 14px 8px;padding:8px 10px;display:none;animation:fi 0.15s ease}
+.act-detail.open{display:block}
+.act-detail h4{font-size:10px;color:#58a6ff;text-transform:uppercase;letter-spacing:0.6px;margin:6px 0 3px;font-weight:600}
+.act-detail h4:first-child{margin-top:0}
+.act-detail .dv{display:flex;gap:4px;align-items:baseline;font-size:11px;padding:1px 0}
+.act-detail .dk{color:#8b949e;min-width:100px;flex-shrink:0}
+.act-detail .dd{color:#c9d1d9;word-break:break-all}
+.act-detail .err-block{background:#1a0a0a;border:1px solid #3d1a1a;border-radius:3px;padding:6px 8px;color:#f85149;font-size:11px;max-height:80px;overflow-y:auto;white-space:pre-wrap;word-break:break-all}
+.act-detail .meta-grid{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:11px}
+.act-detail .meta-grid .mk{color:#8b949e;text-align:right}
+.act-detail .meta-grid .mv{color:#c9d1d9;word-break:break-all}
+.act-loading{color:#8b949e;padding:20px 14px;text-align:center;font-size:12px}
 </style>
 </head>
 <body>
@@ -162,10 +192,11 @@ body{font-family:'SF Mono','Cascadia Code','Consolas',monospace;background:#0d11
       <div class="sess-panels">
         <div class="panel">
           <div class="panel-header"><span>Sessions</span><span style="color:#484f58;font-weight:400" id="sessCnt">0</span></div>
-          <div class="scroll" id="sessList"><div class="empty-msg" id="sessEmpty">No sessions yet. Run an OpenManus agent to see sessions.</div></div>
+          <div class="scroll" id="sessList"><div class="empty-msg" id="sessEmpty">No sessions yet. Run an agent to see sessions.</div></div>
         </div>
-        <div class="panel">
+        <div class="panel" style="border-left:1px solid #30363d">
           <div class="panel-header"><div class="sess-actions-hdr"><span>Actions</span><span class="cnt" id="actCnt">0</span></div></div>
+          <div id="sessSummary"></div>
           <div class="scroll" id="actList"><div class="empty-msg" id="actEmpty">Select a session to view its actions.</div></div>
         </div>
       </div>
@@ -185,7 +216,7 @@ body{font-family:'SF Mono','Cascadia Code','Consolas',monospace;background:#0d11
 <script>"use strict";(()=>{function a(t){let s=document.createElement("div");return s.textContent=t,s.innerHTML}function M(t){if(!t)return"custom";let s=t.split(".")[0];return["llm","tool","agent","token","step"].includes(s)?s:"custom"}function E(t){return t?new Date(t*1e3).toLocaleTimeString("en-US",{hour12:!1,hour:"2-digit",minute:"2-digit",second:"2-digit"}):""}function _(t){return t==null?"":t<1e3?Math.round(t)+"ms":t<6e4?(t/1e3).toFixed(1)+"s":Math.floor(t/6e4)+"m "+Math.round(t%6e4/1e3)+"s"}function v(t){let s=Math.floor(t/1e3),e=Math.floor(s/60),r=Math.floor(e/60);return r>0?r+"h "+e%60+"m":e+"m "+s%60+"s"}function y(t){if(!t)return"never";let s=Date.now()/1e3-t;return s<0&&(s=0),s<1?"just now":s<60?Math.floor(s)+"s ago":s<3600?Math.floor(s/60)+"m ago":Math.floor(s/3600)+"h ago"}var j={"llm.call":["\\u{1F916}","LLM Called"],"llm.error":["\\u26A0","LLM Failed"],"llm.token_usage":["\\u{1F4CA}","Token Usage"],"tool.call":["\\u{1F527}","Tool Executed"],"tool.error":["\\u{1F527}","Tool Failed"],"agent.start":["\\u25B6","Agent Started"],"agent.end":["\\u23F9","Agent Finished"],"agent.error":["\\u{1F6A8}","Agent Error"],"agent.stuck":["\\u23F3","Agent Stuck"],"agent.step":["\\u{1F463}","Agent Step"],"token.limit_exceeded":["\\u{1F6AB}","Token Limit"],"step.limit_warning":["\\u26A0","Step Limit"],custom:["\\u2022","Custom"]};function x(t){return j[t]||["\\u2022",t]}function d(t){return document.getElementById(t)}var U=100,f={},C=[];function F(t,s,e,r){if(f[t])return f[t];let n=document.createElement("div");n.className="flow active";let l=document.createElement("div");l.className="flow-hdr";let c=s.agent_class?s.agent_class+(s.agent_name?" ("+s.agent_name+")":""):t;l.innerHTML='<span class="flow-arr">\\u25BC</span><span class="flow-lbl" title="'+a(c)+'">'+a(c)+'</span><span class="flow-badge active" data-r="st">Running</span><span class="flow-info" data-r="info">'+E(s.ts)+"</span>";let o=document.createElement("div");o.className="flow-summary";let p=document.createElement("div");p.className="flow-body",l.addEventListener("click",()=>{let u=!p.classList.contains("shut");p.classList.toggle("shut",u),o.style.display=u?"none":"flex",l.querySelector(".flow-arr").classList.toggle("shut",u)}),n.appendChild(l),n.appendChild(o),n.appendChild(p);let i={el:n,body:p,hdr:l,summary:o,st:"active",n:0,err:!1,errCount:0,dur:0,tok:0,tools:0,llms:0,steps:0,toolNames:{}};return f[t]=i,C.push(t),r.style.display="none",e.insertBefore(n,e.firstChild),i}function S(t,s){t.st=s,t.el.className="flow "+s;let e=t.hdr.querySelector('[data-r="st"]'),r={active:"Running",done:"Completed",error:"Failed"};e&&(e.className="flow-badge "+s,e.textContent=r[s]||s);let n=t.hdr.querySelector('[data-r="info"]');if(n){let o=[t.n+" events"];t.dur>0&&o.push(_(t.dur)),t.tok>0&&o.push(t.tok+" tok"),t.tools>0&&o.push(t.tools+" tool"+(t.tools>1?"s":"")),t.llms>0&&o.push(t.llms+" llm"),t.steps>0&&o.push(t.steps+" step"+(t.steps>1?"s":"")),n.textContent=o.join(" \\xB7 ")}let l='<span>Events: <span class="fs-v">'+t.n+"</span></span>";t.dur>0&&(l+='<span>Duration: <span class="fs-v">'+_(t.dur)+"</span></span>"),t.tok>0&&(l+='<span>Tokens: <span class="fs-v">'+t.tok+"</span></span>");let c=Object.keys(t.toolNames);c.length&&(l+='<span>Tools: <span class="fs-tools">'+c.map(a).join(", ")+"</span></span>"),t.errCount>0&&(l+='<span>Errors: <span class="fs-err">'+t.errCount+"</span></span>"),t.summary.innerHTML=l}function H(){for(;C.length>U;){let t=C.shift();f[t]&&(f[t].el.remove(),delete f[t])}}var q=200;function J(t){let s=document.createElement("div");s.className="ev-detail";let e="<h4>Identity</h4>";e+=g("Type",t.type||"?"),e+=g("Timestamp",new Date(t.ts*1e3).toISOString()),t.agent_name&&(e+=g("Agent",t.agent_name)),t.agent_class&&(e+=g("Class",t.agent_class)),t.tool_name&&(e+=g("Tool",t.tool_name)),t.outcome&&(e+=g("Outcome",t.outcome)),t.severity&&t.severity!=="info"&&(e+=g("Severity",t.severity)),t.session_id&&(e+=g("Session",t.session_id.slice(0,8))),(t.duration_ms!=null||t.token_count!=null||t.step_number!=null)&&(e+="<h4>Metrics</h4>",t.duration_ms!=null&&(e+=g("Duration",_(t.duration_ms))),t.token_count!=null&&(e+=g("Tokens",String(t.token_count))),t.step_number!=null&&(e+=g("Step",t.step_number+(t.max_steps?"/"+t.max_steps:"")))),t.error&&(e+='<h4>Error</h4><div class="err-block">'+a(t.error)+"</div>");let n=t.meta;if(n){let l=Object.keys(n);if(l.length){e+='<h4>Meta</h4><div class="meta-grid">';for(let c of l){let o=n[c],p=typeof o=="object"?JSON.stringify(o):String(o??"");e+='<span class="mk">'+a(c)+'</span><span class="mv">'+a(p)+"</span>"}e+="</div>"}}return s.innerHTML=e,s}function g(t,s){return'<div class="dv"><span class="dk">'+a(t)+'</span><span class="dd">'+a(String(s))+"</span></div>"}function O(t,s){let e=document.createElement("div"),r=document.createElement("div");r.className="row"+(s===0?" standalone":s>1?" deep":"");let n=M(t.type),l=x(t.type),c=t.outcome||"",o='<div class="r-main">';o+='<span class="r-time">'+E(t.ts)+"</span>",o+='<span class="r-icon">'+l[0]+"</span>",t.severity&&t.severity!=="info"&&(o+='<span class="sev-dot '+t.severity+'"></span>'),o+='<span class="r-type '+n+'">'+a(l[1])+"</span>",c&&(o+='<span class="r-oc '+(c==="success"?"success":"error")+'">'+(c==="success"?"\\u2713 OK":"\\u2717 "+c)+"</span>"),o+='<span class="r-pills">',t.tool_name&&(o+='<span class="p t">'+a(t.tool_name)+"</span>"),t.duration_ms!=null&&(o+='<span class="p d">'+_(t.duration_ms)+"</span>"),t.token_count!=null&&(o+='<span class="p tk">'+t.token_count+" tok</span>"),t.step_number!=null&&(o+='<span class="p step">step '+t.step_number+(t.max_steps?"/"+t.max_steps:"")+"</span>"),t.agent_class&&s===0&&(o+='<span class="p agent">'+a(t.agent_class)+"</span>"),o+="</span></div>";let p=[];if(t.error){let u=t.error.length>120?t.error.slice(0,117)+"...":t.error;p.push('<span class="err">'+a(u)+"</span>")}t.agent_name&&s===0&&p.push('<span class="dim">agent: '+a(t.agent_name)+"</span>"),p.length&&(o+='<div class="r-det">'+p.join(" \\xB7 ")+"</div>"),r.innerHTML=o,e.appendChild(r);let i=J(t);return e.appendChild(i),r.addEventListener("click",()=>i.classList.toggle("open")),e}function N(t,s,e,r,n,l){if(n.value++,r.textContent=String(n.value),e.style.display="none",l.value)return;let c=t.agent_name||t.agent_class;if(c&&(f[c]||t.type==="agent.start")){let i=F(c,t,s,e);i.n++,t.token_count&&(i.tok+=t.token_count),(t.type==="tool.call"||t.type==="tool.error")&&(i.tools++,t.tool_name&&(i.toolNames[t.tool_name]=!0)),t.type==="llm.call"&&i.llms++,t.type==="agent.step"&&i.steps++,(t.outcome==="error"||t.type.includes(".error"))&&(i.err=!0,i.errCount++);let u=1;["tool.call","tool.error","llm.call","llm.token_usage","llm.error"].includes(t.type)&&(u=2),i.body.appendChild(O(t,u)),s.firstChild!==i.el&&s.insertBefore(i.el,s.firstChild),t.type==="agent.end"?(t.duration_ms&&(i.dur=t.duration_ms),S(i,i.err?"error":"done")):t.type==="agent.error"?(i.err=!0,i.errCount++,t.duration_ms&&(i.dur=t.duration_ms),S(i,"error")):S(i,i.st);return}let o=O(t,0);s.firstChild&&s.firstChild!==e?s.insertBefore(o,s.firstChild):s.appendChild(o);let p=s.querySelectorAll(".row.standalone");for(;p.length>q;){let i=s.querySelectorAll(".row.standalone");i[i.length-1].parentElement.remove()}}var K=50;function b(t,s,e){e.style.display="none";let r=document.createElement("div");r.className="al";let n=t.severity||"error";for(r.innerHTML='<div class="al-sev '+a(n)+'">['+a(n.toUpperCase())+"] "+a(t.rule_id||"")+'</div><div class="al-title">'+a(t.title||"")+'</div><div class="al-detail">'+a(t.detail||"")+'</div><div class="al-time">'+y(t.ts)+"</div>",s.insertBefore(r,s.firstChild);s.children.length>K+1;)s.removeChild(s.lastChild)}
 
 /* ========== Sessions Panel ========== */
-var sessMap={},selectedSessId=null,sessActions={};
+var sessMap={},selectedSessId=null,sessActions={},sessFetched={};
 
 function sessStatusClass(st){
   if(st==="active")return"active";
@@ -196,25 +227,47 @@ function sessStatusClass(st){
 
 function renderSessCard(s){
   let cls=sessStatusClass(s.status);
-  let name=s.agent_class?(s.agent_class+(s.agent_name?" ("+s.agent_name+")":"")):(s.agent_name||s.session_id.slice(0,8));
+  let name=s.agent_class||"Agent";
+  if(s.agent_name)name+=" ("+s.agent_name+")";
   let meta=[];
-  meta.push("steps: "+s.step_count);
-  meta.push("tools: "+s.tool_call_count);
-  meta.push("llm: "+s.llm_call_count);
-  let totalTok=s.total_input_tokens+s.total_output_tokens;
-  if(totalTok>0)meta.push("tokens: "+totalTok);
-  if(s.duration_ms!=null)meta.push("dur: "+_(s.duration_ms));
-  else if(s.status==="active"&&s.started_at)meta.push("dur: "+_((Date.now()/1000-s.started_at)*1000));
-  if(s.total_cost_usd>0)meta.push("cost: $"+s.total_cost_usd.toFixed(4));
-  if(s.error){let short=s.error.length>60?s.error.slice(0,57)+"...":s.error;meta.push('<span style="color:#f85149">err: '+a(short)+"</span>")}
+  if(s.step_count>0)meta.push("steps: <b>"+s.step_count+"</b>");
+  if(s.tool_call_count>0)meta.push("tools: <b>"+s.tool_call_count+"</b>");
+  if(s.llm_call_count>0)meta.push("llm: <b>"+s.llm_call_count+"</b>");
+  let totalTok=(s.total_input_tokens||0)+(s.total_output_tokens||0);
+  if(totalTok>0)meta.push("tokens: <b>"+totalTok+"</b>");
+  if(s.duration_ms!=null&&s.duration_ms>0)meta.push("dur: <b>"+_(s.duration_ms)+"</b>");
+  else if(s.status==="active"&&s.started_at)meta.push("dur: <b>"+_((Date.now()/1000-s.started_at)*1000)+"</b>");
 
   let h='<div class="sess-card-hdr">';
   h+='<span class="flow-badge '+cls+'">'+a(s.status.toUpperCase())+"</span>";
   h+='<span class="sess-card-name" title="'+a(name)+'">'+a(name)+"</span>";
   h+="</div>";
-  h+='<div class="sess-card-meta">'+meta.join(" &middot; ")+"</div>";
+  if(meta.length)h+='<div class="sess-card-meta">'+meta.join(" &middot; ")+"</div>";
   h+='<div style="font-size:9px;color:#484f58;margin-top:2px">'+E(s.started_at)+" &middot; "+s.session_id.slice(0,8)+"</div>";
   return h;
+}
+
+function renderSessSummary(sid){
+  let el=d("sessSummary");
+  let s=sessMap[sid]&&sessMap[sid].data;
+  if(!s){el.innerHTML="";return}
+  let name=s.agent_class||"Agent";
+  if(s.agent_name)name+=" ("+s.agent_name+")";
+  let cls=sessStatusClass(s.status);
+  let totalTok=(s.total_input_tokens||0)+(s.total_output_tokens||0);
+  let h='<div class="sess-summary">';
+  h+='<div class="sess-summary-name"><span class="flow-badge '+cls+'">'+a(s.status.toUpperCase())+"</span>"+a(name)+"</div>";
+  h+='<div class="sess-summary-grid">';
+  if(s.duration_ms!=null&&s.duration_ms>0)h+='<span class="sess-summary-pill"><span class="sl">Duration</span>'+_(s.duration_ms)+"</span>";
+  h+='<span class="sess-summary-pill"><span class="sl">Steps</span>'+s.step_count+"</span>";
+  h+='<span class="sess-summary-pill"><span class="sl">Tools</span>'+s.tool_call_count+"</span>";
+  h+='<span class="sess-summary-pill"><span class="sl">LLM</span>'+s.llm_call_count+"</span>";
+  if(totalTok>0)h+='<span class="sess-summary-pill"><span class="sl">Tokens</span>'+totalTok+"</span>";
+  if(s.total_input_tokens>0)h+='<span class="sess-summary-pill"><span class="sl">In</span>'+s.total_input_tokens+"</span>";
+  if(s.total_output_tokens>0)h+='<span class="sess-summary-pill"><span class="sl">Out</span>'+s.total_output_tokens+"</span>";
+  if(s.error)h+='<span class="sess-summary-pill err"><span class="sl">Error</span>'+a(s.error.length>50?s.error.slice(0,47)+"...":s.error)+"</span>";
+  h+="</div></div>";
+  el.innerHTML=h;
 }
 
 function upsertSessCard(s){
@@ -225,65 +278,135 @@ function upsertSessCard(s){
   if(existing){
     existing.data=s;
     existing.el.innerHTML=renderSessCard(s);
-    if(selectedSessId===s.session_id)existing.el.classList.add("selected");
+    if(selectedSessId===s.session_id){
+      existing.el.classList.add("selected");
+      renderSessSummary(s.session_id);
+    }
   }else{
     let el=document.createElement("div");
     el.className="sess-card";
     el.innerHTML=renderSessCard(s);
-    el.addEventListener("click",()=>selectSession(s.session_id));
-    sessMap[s.session_id]={el:el,data:s};
+    let sid=s.session_id;
+    el.addEventListener("click",function(){selectSession(sid)});
+    sessMap[sid]={el:el,data:s};
     list.insertBefore(el,list.firstChild);
   }
   cnt.textContent=String(Object.keys(sessMap).length);
 }
 
 function selectSession(sid){
+  if(selectedSessId===sid)return;
   selectedSessId=sid;
-  Object.values(sessMap).forEach(v=>{v.el.classList.remove("selected")});
+  Object.values(sessMap).forEach(function(v){v.el.classList.remove("selected")});
   if(sessMap[sid])sessMap[sid].el.classList.add("selected");
-  // Fetch historical actions from REST API if we don't have them yet
-  if(!sessActions[sid]||sessActions[sid].length===0){
-    fetch("/openalerts/actions?session_id="+encodeURIComponent(sid)).then(r=>r.json()).then(actions=>{
-      if(actions&&actions.length){
-        if(!sessActions[sid])sessActions[sid]=[];
-        let existing=new Set(sessActions[sid].map(a=>a.id));
-        for(let act of actions){if(!existing.has(act.id))sessActions[sid].push(act)}
-        if(selectedSessId===sid)renderActions(sid);
-      }
-    }).catch(()=>{});
+
+  renderSessSummary(sid);
+
+  let list=d("actList"),cnt=d("actCnt");
+
+  // Show cached actions immediately if available
+  if(sessActions[sid]&&sessActions[sid].length>0){
+    renderActions(sid);
+  }else{
+    // Show loading state
+    list.innerHTML='<div class="act-loading">Loading actions...</div>';
+    cnt.textContent="...";
   }
-  renderActions(sid);
+
+  // Always fetch from server (may have actions not in SSE cache)
+  if(!sessFetched[sid]){
+    fetch("/openalerts/actions?session_id="+encodeURIComponent(sid))
+      .then(function(r){return r.json()})
+      .then(function(actions){
+        sessFetched[sid]=true;
+        if(actions&&actions.length){
+          if(!sessActions[sid])sessActions[sid]=[];
+          var existIds=new Set(sessActions[sid].map(function(x){return x.id}));
+          for(var i=0;i<actions.length;i++){
+            if(!existIds.has(actions[i].id))sessActions[sid].push(actions[i]);
+          }
+        }
+        if(selectedSessId===sid)renderActions(sid);
+      })
+      .catch(function(err){
+        console.error("Failed to fetch actions:",err);
+        if(selectedSessId===sid){
+          if(!sessActions[sid]||!sessActions[sid].length){
+            list.innerHTML='<div class="empty-msg">No actions recorded for this session.</div>';
+            cnt.textContent="0";
+          }
+        }
+      });
+  }
 }
 
+function buildActDetail(act){
+  var s='<h4>Event</h4>';
+  s+=actDV("Type",act.type||"?");
+  s+=actDV("Time",new Date((act.timestamp||0)*1000).toISOString());
+  if(act.agent_name)s+=actDV("Agent",act.agent_name);
+  if(act.tool_name)s+=actDV("Tool",act.tool_name);
+  if(act.duration_ms!=null)s+=actDV("Duration",_(act.duration_ms));
+  if(act.token_count!=null)s+=actDV("Tokens",String(act.token_count));
+  if(act.error){
+    s+='<h4>Error</h4><div class="err-block">'+a(act.error)+"</div>";
+  }
+  if(act.meta){
+    var keys=Object.keys(act.meta);
+    if(keys.length){
+      s+='<h4>Meta</h4><div class="meta-grid">';
+      for(var i=0;i<keys.length;i++){
+        var k=keys[i],v=act.meta[k];
+        var vs=typeof v==="object"?JSON.stringify(v):String(v!=null?v:"");
+        s+='<span class="mk">'+a(k)+'</span><span class="mv">'+a(vs)+"</span>";
+      }
+      s+="</div>";
+    }
+  }
+  return s;
+}
+
+function actDV(k,v){return'<div class="dv"><span class="dk">'+a(k)+'</span><span class="dd">'+a(String(v))+"</span></div>"}
+
 function renderActions(sid){
-  let list=d("actList"),empty=d("actEmpty"),cnt=d("actCnt");
+  var list=d("actList"),cnt=d("actCnt");
   list.innerHTML="";
-  let actions=(sessActions[sid]||[]).slice().sort((a,b)=>a.seq-b.seq);
+  var actions=(sessActions[sid]||[]).slice().sort(function(a,b){return a.seq-b.seq});
   cnt.textContent=String(actions.length);
   if(!actions.length){
-    list.appendChild(empty);
-    empty.style.display="block";
-    empty.textContent=sid?"No actions recorded for this session.":"Select a session to view its actions.";
+    list.innerHTML='<div class="empty-msg">'+(sid?"No actions recorded for this session.":"Select a session to view its actions.")+"</div>";
     return;
   }
-  empty.style.display="none";
-  for(let act of actions){
-    let el=document.createElement("div");
-    el.className="row";
-    let ic=x(act.type);
-    let cat=M(act.type);
-    let h='<div class="r-main">';
-    h+='<span class="r-time">'+E(act.timestamp)+"</span>";
-    h+='<span class="r-icon">'+ic[0]+"</span>";
-    h+='<span class="r-type '+cat+'">'+a(ic[1])+"</span>";
-    h+='<span class="r-pills">';
+  for(var i=0;i<actions.length;i++){
+    var act=actions[i];
+    var wrap=document.createElement("div");
+    var row=document.createElement("div");
+    row.className="act-row";
+    var ic=x(act.type);
+    var cat=M(act.type);
+    var isErr=act.error||(act.type&&act.type.includes(".error"));
+    var h='<div class="ar-main">';
+    h+='<span class="ar-time">'+E(act.timestamp)+"</span>";
+    h+='<span class="ar-icon">'+ic[0]+"</span>";
+    h+='<span class="ar-label '+cat+'">'+a(ic[1])+"</span>";
+    if(isErr)h+='<span class="ar-oc err">FAIL</span>';
+    else if(act.type==="tool.call"||act.type==="llm.call")h+='<span class="ar-oc ok">OK</span>';
+    h+='<span class="ar-pills">';
     if(act.tool_name)h+='<span class="p t">'+a(act.tool_name)+"</span>";
-    if(act.duration_ms!=null)h+='<span class="p d">'+_(act.duration_ms)+"</span>";
-    if(act.token_count!=null)h+='<span class="p tk">'+act.token_count+" tok</span>";
+    if(act.token_count!=null&&act.token_count>0)h+='<span class="p tk">'+act.token_count+" tok</span>";
+    if(act.duration_ms!=null&&act.duration_ms>0)h+='<span class="p d">'+_(act.duration_ms)+"</span>";
+    if(act.meta&&act.meta.input_tokens!=null)h+='<span class="p tk" style="color:#3fb950">in:'+act.meta.input_tokens+"</span>";
+    if(act.meta&&act.meta.completion_tokens!=null)h+='<span class="p tk" style="color:#d29922">out:'+act.meta.completion_tokens+"</span>";
     h+="</span></div>";
-    if(act.error)h+='<div class="r-det"><span class="err">'+a(act.error.length>120?act.error.slice(0,117)+"...":act.error)+"</span></div>";
-    el.innerHTML=h;
-    list.appendChild(el);
+    if(act.error){var short=act.error.length>100?act.error.slice(0,97)+"...":act.error;h+='<div style="padding:2px 0 0 82px;font-size:11px;color:#f85149">'+a(short)+"</div>"}
+    row.innerHTML=h;
+    var detail=document.createElement("div");
+    detail.className="act-detail";
+    detail.innerHTML=buildActDetail(act);
+    row.addEventListener("click",(function(det){return function(){det.classList.toggle("open")}})(detail));
+    wrap.appendChild(row);
+    wrap.appendChild(detail);
+    list.appendChild(wrap);
   }
 }
 

@@ -180,7 +180,7 @@ export function translateGatewayEvent(
       const content = extractContent(c.message);
       if (db) {
         try {
-          upsertSession(db, { session_key: c.sessionKey, last_activity_at: now, status: "active", updated_at: now });
+          upsertSession(db, { session_key: c.sessionKey, last_activity_at: now, status: "active", message_count: 1, updated_at: now });
           upsertAction(db, { id: actionId, run_id: c.runId, session_key: c.sessionKey, seq: c.seq, type: "user_message", event_type: "chat", ts: now });
         } catch { /* ignore */ }
       }
@@ -213,6 +213,7 @@ export function translateGatewayEvent(
           session_key: c.sessionKey,
           last_activity_at: now,
           status: c.state === "delta" ? "thinking" : "active",
+          message_count: c.state === "final" ? 1 : 0,
           total_input_tokens: c.usage?.inputTokens ?? undefined,
           total_output_tokens: c.usage?.outputTokens ?? undefined,
           updated_at: now,
