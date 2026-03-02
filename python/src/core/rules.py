@@ -171,6 +171,30 @@ class HighErrorRateRule:
         return None
 
 
+class SubagentErrorsRule:
+    id = "subagent-errors"
+    default_cooldown_seconds = 900
+    default_threshold = 1
+    event_types = frozenset({EventType.SUBAGENT_ERROR})
+
+    def evaluate(self, event: OpenAlertsEvent, ctx: RuleContext) -> AlertEvent | None:
+        if event.type != EventType.SUBAGENT_ERROR:
+            return None
+        window = ctx.get_window(self.id, window_seconds=60)
+        errors = [e for e in window if e.type == EventType.SUBAGENT_ERROR]
+        threshold = ctx.get_threshold(self.id, self.default_threshold)
+        if len(errors) >= threshold:
+            return AlertEvent(
+                rule_id=self.id,
+                severity=Severity.WARN,
+                title="Subagent Errors Detected",
+                detail=f"{len(errors)} subagent error(s) in the last 60s. Latest: {event.error or 'unknown'}",
+                fingerprint=_fingerprint(self.id),
+                events=errors,
+            )
+        return None
+
+
 ALL_RULES: list[AlertRule] = [  # type: ignore[list-item]
     LLMErrorsRule(),
     ToolErrorsRule(),
@@ -178,4 +202,5 @@ ALL_RULES: list[AlertRule] = [  # type: ignore[list-item]
     TokenLimitRule(),
     StepLimitWarningRule(),
     HighErrorRateRule(),
+    SubagentErrorsRule(),
 ]

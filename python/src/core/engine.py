@@ -66,6 +66,8 @@ class OpenAlertsEngine:
             "agent_errors": 0,
             "agent_steps": 0,
             "tokens_used": 0,
+            "subagent_spawns": 0,
+            "subagent_errors": 0,
         }
 
         # Monitoring collections
@@ -150,6 +152,8 @@ class OpenAlertsEngine:
             EventType.AGENT_START: "agent_starts",
             EventType.AGENT_ERROR: "agent_errors",
             EventType.AGENT_STEP: "agent_steps",
+            EventType.SUBAGENT_SPAWN: "subagent_spawns",
+            EventType.SUBAGENT_ERROR: "subagent_errors",
         }
         stat_key = _stat_map.get(event.type)
         if stat_key:
@@ -257,6 +261,42 @@ class OpenAlertsEngine:
                 session_id,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
+            )
+            session = self._collections._sessions.get(session_id)
+            if session:
+                await self._notify_session_listeners(session)
+
+        # Subagent lifecycle
+        elif event.type == EventType.SUBAGENT_SPAWN and session_id:
+            self._collections.upsert_session(
+                session_id,
+                agent_name=event.agent_name,
+                agent_class=event.agent_class,
+                status="active",
+                started_at=event.ts,
+            )
+            session = self._collections._sessions.get(session_id)
+            if session:
+                await self._notify_session_listeners(session)
+
+        elif event.type == EventType.SUBAGENT_END and session_id:
+            self._collections.upsert_session(
+                session_id,
+                status="completed",
+                ended_at=event.ts,
+                duration_ms=event.duration_ms,
+            )
+            session = self._collections._sessions.get(session_id)
+            if session:
+                await self._notify_session_listeners(session)
+
+        elif event.type == EventType.SUBAGENT_ERROR and session_id:
+            self._collections.upsert_session(
+                session_id,
+                status="error",
+                ended_at=event.ts,
+                duration_ms=event.duration_ms,
+                error=event.error,
             )
             session = self._collections._sessions.get(session_id)
             if session:
