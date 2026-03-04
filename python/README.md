@@ -1,6 +1,6 @@
 # OpenAlerts
 
-Real-time monitoring & alerting SDK for AI agent frameworks. Supports [OpenManus](https://github.com/FoundationAgents/OpenManus) and [nanobot](https://github.com/HKUDS/nanobot).
+Real-time monitoring & alerting SDK for AI agent frameworks. Supports [CrewAI](https://github.com/crewAIInc/crewAI), [OpenManus](https://github.com/FoundationAgents/OpenManus), and [nanobot](https://github.com/HKUDS/nanobot).
 
 Every LLM call, tool execution, agent step, and error is tracked automatically. When things go wrong, you get an alert. A real-time dashboard is included.
 
@@ -8,11 +8,49 @@ Every LLM call, tool execution, agent step, and error is tracked automatically. 
 
 ```bash
 pip install openalerts
+
+# For CrewAI support
+pip install openalerts crewai
 ```
 
 ## Usage
 
 <details open>
+<summary><b>CrewAI</b></summary>
+
+```python
+import asyncio
+import openalerts
+from crewai import Agent, Task, Crew
+
+async def main():
+    # Dashboard starts at http://localhost:9464/openalerts
+    await openalerts.init({"framework": "crewai"})
+
+    # Use CrewAI as normal — automatically monitored
+    researcher = Agent(
+        role="Researcher",
+        goal="Research topics thoroughly",
+        backstory="You are an expert researcher.",
+        llm="gpt-4o-mini",
+    )
+    task = Task(
+        description="Research the benefits of AI monitoring",
+        expected_output="A short summary",
+        agent=researcher,
+    )
+    crew = Crew(agents=[researcher], tasks=[task])
+    result = crew.kickoff()
+    print(result)
+
+asyncio.run(main())
+```
+
+The CrewAI adapter uses CrewAI's native event bus — no monkey-patching. Every crew run, agent execution, task step, tool call, and LLM call is tracked automatically with full session correlation (Crew = session, Agent = subagent, Task = step).
+
+</details>
+
+<details>
 <summary><b>OpenManus</b></summary>
 
 ```python
