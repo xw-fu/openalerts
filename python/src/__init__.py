@@ -190,6 +190,7 @@ def _create_channel(config: ChannelConfig) -> Any:
 _ADAPTER_REGISTRY: dict[str, tuple[str, str]] = {
     "openmanus": ("openalerts.adapters.openmanus", "OpenManusAdapter"),
     "nanobot": ("openalerts.adapters.nanobot", "NanobotAdapter"),
+    "crewai": ("openalerts.adapters.crewai", "CrewAIAdapter"),
 }
 
 

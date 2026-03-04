@@ -14,6 +14,7 @@ dependencies = [
 [project.optional-dependencies]
 openmanus = ["openmanus>=0.1.0"]
 nanobot = ["nanobot-ai>=0.1.0"]
+crewai = ["crewai>=1.9.0"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.25",
