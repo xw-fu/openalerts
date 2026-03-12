@@ -5,7 +5,15 @@
   "description": "Standalone monitoring daemon for OpenClaw — live dashboard, alerts via Telegram/webhook, REST API",
   "author": "Nilay",
   "license": "Apache-2.0",
-  "keywords": ["openclaw", "monitoring", "alerts", "telegram", "dashboard", "ai-agent", "llm"],
+  "keywords": [
+    "openclaw",
+    "monitoring",
+    "alerts",
+    "telegram",
+    "dashboard",
+    "ai-agent",
+    "llm"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/steadwing/openalerts.git",
@@ -28,6 +36,7 @@
     "clean": "node -e \"const fs=require('fs');try{fs.rmSync('dist',{recursive:true,force:true})}catch{}\""
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "ws": "^8.18.0"
   },
   "devDependencies": {
