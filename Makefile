@@ -1,4 +1,4 @@
-.PHONY: install build build-node build-python build-dashboard test test-node test-python clean dev
+.PHONY: install build build-node build-python build-dashboard test test-node test-python clean dev tag-node tag-python
 
 # ── Install ──────────────────────────────────────────────
 install:
@@ -34,3 +34,21 @@ clean:
 # ── Dev ──────────────────────────────────────────────────
 dev-dashboard:
 	npm run watch --workspace=dashboard
+
+# ── Tag & Push ──────────────────────────────────────────
+# Usage: make tag-node V=0.2.8
+#        make tag-python V=0.1.6
+
+tag-node:
+ifndef V
+	$(error V is required. Usage: make tag-node V=0.2.8)
+endif
+	git tag node/v$(V)
+	git push origin node/v$(V)
+
+tag-python:
+ifndef V
+	$(error V is required. Usage: make tag-python V=0.1.6)
+endif
+	git tag python/v$(V)
+	git push origin python/v$(V)
