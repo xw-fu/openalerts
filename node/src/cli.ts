@@ -85,9 +85,16 @@ else if (command === "start") {
   startDaemon(config);
 }
 
+else if (command === "mcp") {
+  const port = parseInt(getFlag("--port") ?? "4242");
+  import("./mcp/index.js")
+    .then(({ startMcpServer }) => startMcpServer({ port }))
+    .catch(err => { console.error("[mcp] Failed to start MCP server:", err); process.exit(1); });
+}
+
 else {
   console.error(`Unknown command: ${command}`);
-  console.error("Usage: openalerts [start|init|status|test] [--port N] [--config path]");
+  console.error("Usage: openalerts [start|init|status|test|mcp] [--port N] [--config path]");
   process.exit(1);
 }
 
