@@ -18,6 +18,7 @@
   <a href="#dashboard">Dashboard</a> &middot;
   <a href="#alert-rules">Alert Rules</a> &middot;
   <a href="#llm-enriched-alerts">LLM Enrichment</a> &middot;
+  <a href="#mcp-server">MCP Server</a> &middot;
   <a href="#commands">Commands</a>
 </p>
 
@@ -249,6 +250,7 @@ Dashboard at **http://127.0.0.1:4242** — the gateway overlay dismisses automat
 | `openalerts start` | Start the monitoring daemon |
 | `openalerts status` | Print live engine state (daemon must be running) |
 | `openalerts test` | Fire a test alert through all configured channels |
+| `openalerts mcp` | Start the MCP server for AI assistant integration (stdio) |
 
 ### Configuration
 
@@ -314,6 +316,20 @@ OpenAlerts can optionally use your configured LLM to enrich alerts with a human-
 Summary: Your OpenAI API key is invalid or expired — the agent cannot make LLM calls.
 Action: Update your API key with a valid key from platform.openai.com/api-keys
 ```
+
+## MCP Server
+
+The Node package ships an [MCP](https://modelcontextprotocol.io) server so AI assistants can query your monitoring data directly — active sessions, recent alerts, agent activity, costs — without opening the dashboard.
+
+```bash
+openalerts mcp
+```
+
+10 tools available: `summarize`, `get_status`, `get_alerts`, `get_sessions`, `get_session_detail`, `get_activity`, `get_rule_states`, `get_agents`, `get_cron_jobs`, `fire_test_alert`.
+
+Falls back to SQLite automatically if the daemon isn't running. See [node/README.md](node/README.md#mcp-server) for full setup and config.
+
+---
 
 ## Commands
 
