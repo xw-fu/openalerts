@@ -41,6 +41,7 @@ Dashboard at **http://127.0.0.1:4242** — the gateway overlay dismisses automat
 | `openalerts start`  | Start the monitoring daemon |
 | `openalerts status` | Print live engine state (daemon must be running) |
 | `openalerts test`   | Fire a test alert through all configured channels |
+| `openalerts mcp`    | Start the MCP server (stdio) for AI assistant integration |
 
 **Options for `start`:**
 
@@ -186,6 +187,69 @@ Most list endpoints accept `?limit=N` (default 100, max 500) and `/api/activity`
 
 ---
 
+## MCP Server
+
+OpenAlerts ships a [Model Context Protocol](https://modelcontextprotocol.io) server so any MCP-compatible AI assistant (Claude Code, Claude Desktop, Cursor, etc.) can query your monitoring data directly — no browser, no dashboard needed.
+
+```bash
+openalerts mcp           # start MCP server on stdio
+openalerts mcp --port N  # connect to daemon on a custom port (default 4242)
+```
+
+Add to your MCP client config (e.g. `~/.claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "openalerts": {
+      "command": "node",
+      "args": ["--experimental-sqlite", "/path/to/node/dist/cli.js", "mcp"]
+    }
+  }
+}
+```
+
+Or if installed globally:
+
+```json
+{
+  "mcpServers": {
+    "openalerts": {
+      "command": "openalerts",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Tools
+
+| Tool | Description |
+| ---- | ----------- |
+| `summarize` | Narrative overview — sessions, alerts, activity, cost, gateway status |
+| `get_status` | Daemon health, gateway connection, 24h stats |
+| `get_alerts` | Recent fired alerts — filterable by severity or rule ID |
+| `get_sessions` | Agent sessions with status, cost, token counts |
+| `get_session_detail` | Full session + all its actions/events |
+| `get_activity` | Unified activity feed — tool calls, LLM calls, agent steps |
+| `get_rule_states` | All 10 rules with thresholds, cooldowns, last-fired time |
+| `get_agents` | Known agents with IDs and names |
+| `get_cron_jobs` | Scheduled jobs with last run status and next run time |
+| `fire_test_alert` | Send a test alert through configured channels |
+
+### Resources
+
+| URI | Content |
+| --- | ------- |
+| `openalerts://status` | Engine health + 24h stats |
+| `openalerts://alerts/recent` | Last 50 fired alerts |
+| `openalerts://sessions/active` | Sessions active in the last 15 minutes |
+| `openalerts://rules` | All rules with last-fired info |
+
+**Works without the daemon** — if `openalerts start` isn't running, the MCP server falls back to reading SQLite directly from `~/.openalerts/openalerts.db`.
+
+---
+
 ## Architecture
 
 ```
@@ -212,6 +276,11 @@ openalerts
 │   ├── routes.ts           All REST + SSE route handlers
 │   ├── sse.ts              SSE manager (15s keepalive, broadcast)
 │   └── dashboard.ts        Embedded dashboard HTML (vanilla JS, zero framework)
+├── mcp/
+│   ├── index.ts            MCP server bootstrap + tool/resource registration
+│   ├── client.ts           REST API client with SQLite fallback
+│   ├── tools.ts            10 tool handler implementations
+│   └── resources.ts        4 resource handlers
 └── db/
     ├── index.ts            SQLite open + periodic prune
     ├── schema.ts           12 tables: sessions, actions, alerts, heartbeats, cron_jobs…
