@@ -8,6 +8,7 @@ import logging
 from typing import Any
 
 from openalerts.channels.discord import DiscordChannel
+from openalerts.channels.feishu import FeishuChannel
 from openalerts.channels.slack import SlackChannel
 from openalerts.channels.webhook import WebhookChannel
 from openalerts.collections.types import CollectionStats, MonitorAction, MonitorSession
@@ -182,6 +183,8 @@ def _create_channel(config: ChannelConfig) -> Any:
         return DiscordChannel(config.webhook_url, config.name)
     elif config.type == "webhook":
         return WebhookChannel(config.webhook_url, config.name, config.headers)
+    elif config.type == "feishu":
+        return FeishuChannel(config.webhook_url, config.keyword or "", config.name)
     else:
         logger.warning("Unknown channel type: %s", config.type)
         return None

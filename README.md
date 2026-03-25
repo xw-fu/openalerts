@@ -134,7 +134,7 @@ The nanobot adapter also tracks **subagent lifecycle** — `subagent.spawn`, `su
 
 That's it. A real-time dashboard starts at [http://localhost:9464/openalerts](http://localhost:9464/openalerts). OpenAlerts auto-instruments the configured framework so every event flows through the monitoring engine. Cleanup happens automatically on exit. All events are persisted to `~/.openalerts/` as JSONL.
 
-Optionally, add [channels](#channels) (Slack, Discord, webhooks) to get alerts delivered when things go wrong.
+Optionally, add [channels](#channels) (Slack, Discord, Feishu, webhooks) to get alerts delivered when things go wrong.
 
 ### Standalone Dashboard
 
@@ -172,6 +172,9 @@ Also works via `python -m openalerts serve`.
 # Discord
 {"type": "discord", "webhook_url": "https://discord.com/api/webhooks/..."}
 
+# Feishu (custom bot webhook)
+{"type": "feishu", "webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxx", "keyword": "alert"}
+
 # Generic webhook
 {"type": "webhook", "webhook_url": "https://your-server.com/alerts", "headers": {"Authorization": "Bearer ..."}}
 ```
@@ -181,6 +184,7 @@ Or via environment variables (no code changes needed):
 ```bash
 OPENALERTS_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
 OPENALERTS_DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
+OPENALERTS_FEISHU_WEBHOOK_URL="https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
 OPENALERTS_WEBHOOK_URL="https://your-server.com/alerts"
 ```
 

@@ -3,13 +3,15 @@ import os from "node:os";
 import path from "node:path";
 
 export interface ChannelConfig {
-  type: "telegram" | "discord" | "slack" | "webhook" | "console";
+  type: "telegram" | "discord" | "slack" | "webhook" | "feishu" | "console";
   // telegram
   token?: string;
   chatId?: string;
-  // slack / discord / webhook
+  // slack / discord / webhook / feishu
   webhookUrl?: string;
   url?: string;
+  // feishu — keyword injected into every message (for bot keyword security)
+  keyword?: string;
 }
 
 export interface RuleOverride {

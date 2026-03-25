@@ -22,6 +22,7 @@ import { OpenAlertsEngine } from "./core/engine.js";
 import { TelegramChannel } from "./channels/telegram.js";
 import { WebhookChannel } from "./channels/webhook.js";
 import { ConsoleChannel } from "./channels/console.js";
+import { FeishuChannel } from "./channels/feishu.js";
 import { startHttpServer } from "./server/index.js";
 import type { AlertChannel } from "./core/types.js";
 import type { DatabaseSync } from "node:sqlite";
@@ -119,6 +120,9 @@ async function startDaemon(config: ReturnType<typeof loadConfig>): Promise<void>
     } else if (ch.type === "webhook" && ch.webhookUrl) {
       channels.push(new WebhookChannel(ch.webhookUrl));
       console.log("[channels] Webhook channel added");
+    } else if (ch.type === "feishu" && ch.webhookUrl) {
+      channels.push(new FeishuChannel(ch.webhookUrl, ch.keyword));
+      console.log("[channels] Feishu channel added");
     } else if (ch.type === "console") {
       channels.push(new ConsoleChannel());
       console.log("[channels] Console channel added");

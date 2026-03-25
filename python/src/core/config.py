@@ -16,6 +16,8 @@ class ChannelConfig(BaseModel):
     webhook_url: str | None = None
     name: str | None = None
     headers: dict[str, str] | None = None
+    # feishu — keyword injected into every message (for bot keyword security)
+    keyword: str | None = None
 
 
 class OpenAlertsConfig(BaseModel):
@@ -44,6 +46,7 @@ _ENV_CHANNEL_MAP: dict[str, str] = {
     "OPENALERTS_SLACK_WEBHOOK_URL": "slack",
     "OPENALERTS_DISCORD_WEBHOOK_URL": "discord",
     "OPENALERTS_WEBHOOK_URL": "webhook",
+    "OPENALERTS_FEISHU_WEBHOOK_URL": "feishu",
 }
 
 

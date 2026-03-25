@@ -1,6 +1,6 @@
 # openalerts
 
-Standalone monitoring daemon for [OpenClaw](https://openclaw.dev). Connects to your local OpenClaw gateway in real time, fires alerts via Telegram or webhook when something goes wrong, and serves a live dashboard at `http://localhost:4242`.
+Standalone monitoring daemon for [OpenClaw](https://openclaw.dev). Connects to your local OpenClaw gateway in real time, fires alerts via Telegram, Feishu, or webhook when something goes wrong, and serves a live dashboard at `http://localhost:4242`.
 
 No code changes to OpenClaw needed — runs as a separate process alongside it.
 
@@ -71,6 +71,7 @@ Dashboard at **http://127.0.0.1:4242** — the gateway overlay dismisses automat
   },
   "channels": [
     { "type": "telegram", "token": "BOT_TOKEN", "chatId": "CHAT_ID" },
+    { "type": "feishu", "webhookUrl": "https://open.feishu.cn/open-apis/bot/v2/hook/xxx", "keyword": "alert" },
     { "type": "webhook", "webhookUrl": "https://your-endpoint" },
     { "type": "console" }
   ],
@@ -268,6 +269,7 @@ openalerts
 ├── readers/
 │   └── openclaw.ts         Reads SOUL.md, cron jobs, sessions, delivery queue, config
 ├── channels/
+│   ├── feishu.ts           Feishu custom bot webhook
 │   ├── telegram.ts         Telegram Bot API (no SDK, direct HTTP)
 │   ├── webhook.ts          HTTP POST to any webhook URL
 │   └── console.ts          Console fallback
@@ -299,7 +301,7 @@ openalerts
 OpenClaw gateway (ws://127.0.0.1:18789)
     │  health, agent, chat, exec events
     ▼
-gateway-adapter.ts ──► engine.ingest() ──► rule evaluation ──► Telegram / webhook
+gateway-adapter.ts ──► engine.ingest() ──► rule evaluation ──► Telegram / Feishu / webhook
     │                        │
     │                   SQLite DB              JSONL event store
     │                (actions, alerts,         (warm-start rule
