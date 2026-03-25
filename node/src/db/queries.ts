@@ -316,23 +316,34 @@ function messageFor(eventType: string, source: string, toolName?: string | null,
 }
 
 export function getActivityLog(db: DatabaseSync, limit = 100, sessionKey?: string): ActivityEntry[] {
-  const sessFilter = sessionKey ? `AND session_key = '${sessionKey.replace(/'/g, "''")}'` : "";
+  const params: (string | number)[] = [];
+
+  const actionsWhere = sessionKey
+    ? "WHERE type IS NOT NULL AND type != 'streaming' AND session_key = ?"
+    : "WHERE type IS NOT NULL AND type != 'streaming'";
+  if (sessionKey) params.push(sessionKey);
+
+  const diagWhere = sessionKey ? "WHERE session_key = ?" : "";
+  if (sessionKey) params.push(sessionKey);
+
+  params.push(limit);
+
   const rows = db.prepare(`
     SELECT
       ts, 'action' AS source, type AS event_type, tool_name, session_key,
       run_id, input_tokens, output_tokens, duration_ms,
       NULL AS summary, NULL AS channel
     FROM actions
-    WHERE type IS NOT NULL AND type != 'streaming' ${sessFilter}
+    ${actionsWhere}
     UNION ALL
     SELECT
       ts, 'diagnostic' AS source, event_type, NULL AS tool_name, session_key,
       NULL AS run_id, NULL AS input_tokens, NULL AS output_tokens, NULL AS duration_ms,
       summary, channel
-    FROM diagnostics ${sessionKey ? `WHERE session_key = '${sessionKey.replace(/'/g, "''")}'` : ""}
+    FROM diagnostics ${diagWhere}
     ORDER BY ts DESC
     LIMIT ?
-  `).all(limit) as unknown as Array<{
+  `).all(...params) as unknown as Array<{
     ts: number; source: string; event_type: string; tool_name: string | null;
     session_key: string | null; run_id: string | null;
     input_tokens: number | null; output_tokens: number | null;
