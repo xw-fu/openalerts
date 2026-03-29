@@ -239,31 +239,26 @@ const heartbeatFail: AlertRuleDefinition = {
 		}
 
 		// ── RECOVERY: heartbeat succeeded after failures ─────────────────────
-		// Reset counter first, then check if we had an active alert to recover from.
 		ctx.state.consecutives.set(counterKey, 0);
-
 		if (prevCount > 0) {
-			const threshold = getRuleThreshold(ctx, "heartbeat-fail", 3);
-			// Only fire recovery if we were actually in an alerting state (count >= threshold)
-			if (prevCount >= threshold) {
-				const channel = event.channel ?? "";
-				const fingerprint = `heartbeat-fail:${channel}`;
-				const recoveryCooldownMs = 10 * 60 * 1000;
-				const lastRecovery = ctx.state.recoveryFiredAt.get(fingerprint) ?? 0;
-				if (ctx.now - lastRecovery >= recoveryCooldownMs) {
-					ctx.state.recoveryFiredAt.set(fingerprint, ctx.now);
-					return {
-						type: "alert",
-						id: makeAlertId("heartbeat-fail", fingerprint, ctx.now),
-						ruleId: "heartbeat-fail",
-						severity: "info",
-						title: "Heartbeat delivery restored",
-						detail: `Heartbeat delivery recovered after ${prevCount} failure(s).${channel ? ` Channel: ${channel}.` : ""}`,
-						ts: ctx.now,
-						fingerprint,
-						recovery: true,
-					};
-				}
+			const channel = event.channel ?? "";
+			const fingerprint = `heartbeat-fail:${channel}`;
+			if (!ctx.state.cooldowns.has(fingerprint)) return null;
+			const recoveryCooldownMs = 10 * 60 * 1000;
+			const lastRecovery = ctx.state.recoveryFiredAt.get(fingerprint) ?? 0;
+			if (ctx.now - lastRecovery >= recoveryCooldownMs) {
+				ctx.state.recoveryFiredAt.set(fingerprint, ctx.now);
+				return {
+					type: "alert",
+					id: makeAlertId("heartbeat-fail", fingerprint, ctx.now),
+					ruleId: "heartbeat-fail",
+					severity: "info",
+					title: "Heartbeat delivery restored",
+					detail: `Heartbeat delivery recovered after ${prevCount} failure(s).${channel ? ` Channel: ${channel}.` : ""}`,
+					ts: ctx.now,
+					fingerprint,
+					recovery: true,
+				};
 			}
 		}
 		return null;
@@ -295,34 +290,25 @@ const queueDepth: AlertRuleDefinition = {
 
 		// ── RECOVERY: queue was high but is now normal ───────────────────────
 		if (queued < threshold) {
-			const lastAlertTs = ctx.state.consecutives.get("_queueDepthAlertTs") ?? 0;
-			if (lastAlertTs > 0) {
-				// Queue dropped below threshold — clear the alert marker
-				ctx.state.consecutives.delete("_queueDepthAlertTs");
-
-				const recoveryCooldownMs = 10 * 60 * 1000;
-				const lastRecovery = ctx.state.recoveryFiredAt.get(fingerprint) ?? 0;
-				if (ctx.now - lastRecovery >= recoveryCooldownMs) {
-					ctx.state.recoveryFiredAt.set(fingerprint, ctx.now);
-					return {
-						type: "alert",
-						id: makeAlertId("queue-depth", fingerprint, ctx.now),
-						ruleId: "queue-depth",
-						severity: "info",
-						title: "Queue depth restored",
-						detail: `Queue is back to ${queued} item(s) (threshold: ${threshold}).`,
-						ts: ctx.now,
-						fingerprint,
-						recovery: true,
-					};
-				}
+			if (!ctx.state.cooldowns.has(fingerprint)) return null;
+			const recoveryCooldownMs = 10 * 60 * 1000;
+			const lastRecovery = ctx.state.recoveryFiredAt.get(fingerprint) ?? 0;
+			if (ctx.now - lastRecovery >= recoveryCooldownMs) {
+				ctx.state.recoveryFiredAt.set(fingerprint, ctx.now);
+				return {
+					type: "alert",
+					id: makeAlertId("queue-depth", fingerprint, ctx.now),
+					ruleId: "queue-depth",
+					severity: "info",
+					title: "Queue depth restored",
+					detail: `Queue is back to ${queued} item(s) (threshold: ${threshold}).`,
+					ts: ctx.now,
+					fingerprint,
+					recovery: true,
+				};
 			}
+			// Recovery cooldown not expired — silently ignore.
 			return null;
-		}
-
-		// Queue is still high — record the alert time for later recovery detection
-		if (!ctx.state.consecutives.has("_queueDepthAlertTs")) {
-			ctx.state.consecutives.set("_queueDepthAlertTs", ctx.now);
 		}
 
 		return {
@@ -523,9 +509,9 @@ const gatewayDown: AlertRuleDefinition = {
 		const fingerprint = "gateway-down";
 
 		// ── RECOVERY: gateway was down but is now responding ──────────────────
-		// lastHeartbeatTs is updated by the heartbeat event BEFORE this tick runs.
-		// If silence is back below threshold, the gateway has recovered.
+		// Only fire recovery if we actually sent the alert first.
 		if (silenceMs < threshold) {
+			if (!ctx.state.cooldowns.has(fingerprint)) return null;
 			// Use a separate recovery cooldown (10 min) to avoid flooding.
 			// The fingerprint is the same so the regular cooldown still applies.
 			const recoveryCooldownMs = 10 * 60 * 1000;
