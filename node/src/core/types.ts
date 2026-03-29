@@ -48,6 +48,8 @@ export type AlertEvent = {
   detail: string;
   ts: number;
   fingerprint: string; // dedup key: `${ruleId}:${contextKey}`
+  /** True for recovery notifications (condition cleared after an alert) */
+  recovery?: boolean;
 };
 
 export type DiagnosticSnapshot = {
@@ -142,6 +144,8 @@ export type EvaluatorState = {
   cooldowns: Map<string, number>;
   /** Consecutive failure counters keyed by counter name */
   consecutives: Map<string, number>;
+  /** Recovery: fingerprint → last recovery-alert fired timestamp (prevents recovery spam) */
+  recoveryFiredAt: Map<string, number>;
   /** Hourly alert count for hard cap */
   hourlyAlerts: { count: number; resetAt: number };
   /** Last diagnostic heartbeat timestamp (for gateway-down detection) */

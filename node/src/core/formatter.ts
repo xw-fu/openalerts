@@ -3,15 +3,21 @@ import type { AlertEvent, EvaluatorState, StoredEvent } from "./types.js";
 // ─── Alert Messages (sent to user's channel) ────────────────────────────────
 
 export function formatAlertMessage(alert: AlertEvent, opts?: { diagnosisHint?: string }): string {
-  const prefix =
-    alert.severity === "critical"
-      ? "[OpenAlerts] CRITICAL: "
-      : "[OpenAlerts] ";
+  let prefix: string;
+  if (alert.recovery) {
+    prefix = "[OpenAlerts] RECOVERED: ";
+  } else if (alert.severity === "critical") {
+    prefix = "[OpenAlerts] CRITICAL: ";
+  } else {
+    prefix = "[OpenAlerts] ";
+  }
 
-  const lines = [prefix + alert.title, "", alert.detail, "", "/health for full status."];
+  const lines = [prefix + alert.title, "", alert.detail];
 
-  if (alert.severity === "critical" && opts?.diagnosisHint) {
-    lines[lines.length - 1] = opts.diagnosisHint;
+  if (!alert.recovery && alert.severity === "critical" && opts?.diagnosisHint) {
+    lines.push("", opts.diagnosisHint);
+  } else {
+    lines.push("", "/health for full status.");
   }
 
   return lines.join("\n");

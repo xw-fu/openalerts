@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { FeishuChannel } from "../feishu.js";
 import type { AlertEvent } from "../../core/types.js";
 
-function makeAlert(severity: "info" | "warn" | "error" | "critical"): AlertEvent {
+function makeAlert(severity: "info" | "warn" | "error" | "critical", recovery = false): AlertEvent {
   return {
     type: "alert",
     id: `test:fp:${Date.now()}`,
@@ -13,6 +13,7 @@ function makeAlert(severity: "info" | "warn" | "error" | "critical"): AlertEvent
     detail: "Something went wrong",
     ts: Date.now(),
     fingerprint: "test:fp",
+    recovery,
   };
 }
 
@@ -79,6 +80,18 @@ describe("FeishuChannel", () => {
         `Expected text to start with ${emoji} for severity ${severity}, got: ${body.content.text}`
       );
     }
+  });
+
+  it("should use checkmark emoji for recovery alerts regardless of severity", async () => {
+    const ch = new FeishuChannel("https://open.feishu.cn/open-apis/bot/v2/hook/test");
+
+    const alert = makeAlert("error", true); // recovery=true, severity=error
+    await ch.send(alert, "Gateway is responding again.");
+    const body = JSON.parse(lastFetchInit?.body as string);
+    assert.ok(
+      body.content.text.startsWith("✅"),
+      `Expected recovery alert to start with ✅, got: ${body.content.text}`
+    );
   });
 
   it("should include configured keyword in text when provided", async () => {

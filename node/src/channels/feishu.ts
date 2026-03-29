@@ -18,9 +18,12 @@ export class FeishuChannel implements AlertChannel {
   }
 
   async send(alert: AlertEvent, formatted: string): Promise<void> {
-    const prefix = alert.severity === "critical" ? "🚨" :
-                   alert.severity === "error" ? "❌" :
-                   alert.severity === "warn" ? "⚠️" : "ℹ️";
+    // Recovery alerts use a distinct visual treatment
+    const prefix = alert.recovery
+      ? "✅"
+      : alert.severity === "critical" ? "🚨" :
+        alert.severity === "error" ? "❌" :
+        alert.severity === "warn" ? "⚠️" : "ℹ️";
 
     const tag = this.keyword ? ` [${this.keyword}]` : "";
     const text = `${prefix}${tag} ${formatted}`;

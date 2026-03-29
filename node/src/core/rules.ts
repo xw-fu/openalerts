@@ -215,9 +215,10 @@ const heartbeatFail: AlertRuleDefinition = {
 		if (!isRuleEnabled(ctx, "heartbeat-fail")) return null;
 
 		const counterKey = "heartbeat-consecutive-fail";
+		const prevCount = ctx.state.consecutives.get(counterKey) ?? 0;
 
 		if (event.outcome === "error") {
-			const count = (ctx.state.consecutives.get(counterKey) ?? 0) + 1;
+			const count = prevCount + 1;
 			ctx.state.consecutives.set(counterKey, count);
 
 			const threshold = getRuleThreshold(ctx, "heartbeat-fail", 3);
@@ -237,8 +238,34 @@ const heartbeatFail: AlertRuleDefinition = {
 			};
 		}
 
-		// Reset on any non-error (success, undefined, etc.)
+		// ── RECOVERY: heartbeat succeeded after failures ─────────────────────
+		// Reset counter first, then check if we had an active alert to recover from.
 		ctx.state.consecutives.set(counterKey, 0);
+
+		if (prevCount > 0) {
+			const threshold = getRuleThreshold(ctx, "heartbeat-fail", 3);
+			// Only fire recovery if we were actually in an alerting state (count >= threshold)
+			if (prevCount >= threshold) {
+				const channel = event.channel ?? "";
+				const fingerprint = `heartbeat-fail:${channel}`;
+				const recoveryCooldownMs = 10 * 60 * 1000;
+				const lastRecovery = ctx.state.recoveryFiredAt.get(fingerprint) ?? 0;
+				if (ctx.now - lastRecovery >= recoveryCooldownMs) {
+					ctx.state.recoveryFiredAt.set(fingerprint, ctx.now);
+					return {
+						type: "alert",
+						id: makeAlertId("heartbeat-fail", fingerprint, ctx.now),
+						ruleId: "heartbeat-fail",
+						severity: "info",
+						title: "Heartbeat delivery restored",
+						detail: `Heartbeat delivery recovered after ${prevCount} failure(s).${channel ? ` Channel: ${channel}.` : ""}`,
+						ts: ctx.now,
+						fingerprint,
+						recovery: true,
+					};
+				}
+			}
+		}
 		return null;
 	},
 };
@@ -264,9 +291,40 @@ const queueDepth: AlertRuleDefinition = {
 
 		const queued = event.queueDepth ?? 0;
 		const threshold = getRuleThreshold(ctx, "queue-depth", 10);
-		if (queued < threshold) return null;
-
 		const fingerprint = "queue-depth";
+
+		// ── RECOVERY: queue was high but is now normal ───────────────────────
+		if (queued < threshold) {
+			const lastAlertTs = ctx.state.consecutives.get("_queueDepthAlertTs") ?? 0;
+			if (lastAlertTs > 0) {
+				// Queue dropped below threshold — clear the alert marker
+				ctx.state.consecutives.delete("_queueDepthAlertTs");
+
+				const recoveryCooldownMs = 10 * 60 * 1000;
+				const lastRecovery = ctx.state.recoveryFiredAt.get(fingerprint) ?? 0;
+				if (ctx.now - lastRecovery >= recoveryCooldownMs) {
+					ctx.state.recoveryFiredAt.set(fingerprint, ctx.now);
+					return {
+						type: "alert",
+						id: makeAlertId("queue-depth", fingerprint, ctx.now),
+						ruleId: "queue-depth",
+						severity: "info",
+						title: "Queue depth restored",
+						detail: `Queue is back to ${queued} item(s) (threshold: ${threshold}).`,
+						ts: ctx.now,
+						fingerprint,
+						recovery: true,
+					};
+				}
+			}
+			return null;
+		}
+
+		// Queue is still high — record the alert time for later recovery detection
+		if (!ctx.state.consecutives.has("_queueDepthAlertTs")) {
+			ctx.state.consecutives.set("_queueDepthAlertTs", ctx.now);
+		}
+
 		return {
 			type: "alert",
 			id: makeAlertId("queue-depth", fingerprint, ctx.now),
@@ -461,9 +519,47 @@ const gatewayDown: AlertRuleDefinition = {
 			"gateway-down",
 			DEFAULTS.gatewayDownThresholdMs,
 		);
-		if (silenceMs < threshold) return null;
 
 		const fingerprint = "gateway-down";
+
+		// ── RECOVERY: gateway was down but is now responding ──────────────────
+		// lastHeartbeatTs is updated by the heartbeat event BEFORE this tick runs.
+		// If silence is back below threshold, the gateway has recovered.
+		if (silenceMs < threshold) {
+			// Use a separate recovery cooldown (10 min) to avoid flooding.
+			// The fingerprint is the same so the regular cooldown still applies.
+			const recoveryCooldownMs = 10 * 60 * 1000;
+			const lastRecovery = ctx.state.recoveryFiredAt.get(fingerprint) ?? 0;
+			if (ctx.now - lastRecovery >= recoveryCooldownMs) {
+				ctx.state.recoveryFiredAt.set(fingerprint, ctx.now);
+				const downAt = ctx.state.consecutives.get("_gatewayDownAt") ?? ctx.state.lastHeartbeatTs;
+				const downtimeMs = Math.max(0, ctx.state.lastHeartbeatTs - downAt);
+				const downtimeSec = Math.round(downtimeMs / 1000);
+				const lastTime = new Date(ctx.state.lastHeartbeatTs).toLocaleTimeString([], {
+					hour: "2-digit",
+					minute: "2-digit",
+					second: "2-digit",
+				});
+				return {
+					type: "alert",
+					id: makeAlertId("gateway-down", fingerprint, ctx.now),
+					ruleId: "gateway-down",
+					severity: "info",
+					title: "Gateway recovered",
+					detail: `Gateway is responding again. Downtime: ~${downtimeSec}s. Last heartbeat: ${lastTime}.`,
+					ts: ctx.now,
+					fingerprint,
+					recovery: true,
+				};
+			}
+			return null;
+		}
+
+		// Record when we first detected the outage (for accurate downtime reporting)
+		if (!ctx.state.consecutives.has("_gatewayDownAt")) {
+			ctx.state.consecutives.set("_gatewayDownAt", ctx.now);
+		}
+
 		const silenceSec = Math.round(silenceMs / 1000);
 		const lastTime = new Date(ctx.state.lastHeartbeatTs).toLocaleTimeString(
 			[],

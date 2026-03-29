@@ -15,6 +15,7 @@ export function createEvaluatorState(): EvaluatorState {
     windows: new Map(),
     cooldowns: new Map(),
     consecutives: new Map(),
+    recoveryFiredAt: new Map(),
     hourlyAlerts: { count: 0, resetAt: now + 60 * 60 * 1000 },
     lastHeartbeatTs: 0,
     startedAt: now,
